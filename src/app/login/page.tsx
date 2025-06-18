@@ -6,9 +6,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
-  onAuthStateChanged, // Import onAuthStateChanged
+  signInWithPopup, //  <-- เปลี่ยนมาใช้ตัวนี้
+  onAuthStateChanged,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -27,9 +26,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // This loading state is for the page itself, especially for the redirect check
   const [pageLoading, setPageLoading] = useState(true);
-  // This loading state is for the form submission
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
@@ -37,7 +34,7 @@ export default function LoginPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.push("/");
+        router.push("/"); // เมื่อล็อกอินสำเร็จ ให้ไปหน้าแรก
       } else {
         setPageLoading(false);
       }
@@ -45,21 +42,8 @@ export default function LoginPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Check for Google redirect result
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          // No alert needed, onAuthStateChanged will handle the redirect
-          router.push("/");
-        }
-      })
-      .catch((err) => {
-        const errorMessage = err.message || 'เกิดข้อผิดพลาดในการล็อกอินด้วย Google';
-        setError(errorMessage);
-      });
-  }, [router]);
-
+  // ไม่ต้องใช้ useEffect สำหรับ getRedirectResult แล้ว เพราะเราจะใช้ Popup แทน
+  
   const handleSignUp = async () => {
     setError(null);
     setIsSubmitting(true);
@@ -70,9 +54,9 @@ export default function LoginPage() {
     }
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      // No alert needed, onAuthStateChanged will handle the redirect
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
+      // onAuthStateChanged จะจัดการ redirect ให้เอง
+    } catch (err: any) {
+      const errorMessage = err.message || "เกิดข้อผิดพลาด";
       setError("การสมัครสมาชิกล้มเหลว: " + errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -84,21 +68,33 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // No alert needed, onAuthStateChanged will handle the redirect
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
+      // onAuthStateChanged จะจัดการ redirect ให้เอง
+    } catch (err: any) {
+      const errorMessage = err.message || "เกิดข้อผิดพลาด";
       setError("การเข้าสู่ระบบล้มเหลว: " + errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
   
+  // --- นี่คือฟังก์ชันที่แก้ไขใหม่ ---
   const handleGoogleSignIn = async () => {
     setError(null);
-    setIsSubmitting(true); // Visually indicate loading
+    setIsSubmitting(true);
     const provider = new GoogleAuthProvider();
-    // Use signInWithRedirect, the result is handled by the useEffect hook
-    await signInWithRedirect(auth, provider);
+    try {
+      // เรียกใช้ signInWithPopup
+      await signInWithPopup(auth, provider);
+      // เมื่อสำเร็จ onAuthStateChanged จะทำงานและ redirect ไปหน้าแรกเอง
+    } catch (err: any) {
+      // ไม่ต้องแสดง error ถ้าผู้ใช้แค่ปิดหน้าต่าง popup
+      if (err.code !== 'auth/popup-closed-by-user') {
+          const errorMessage = err.message || "เกิดข้อผิดพลาด";
+          setError("การล็อกอินด้วย Google ล้มเหลว: " + errorMessage);
+      }
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   if (pageLoading) {
