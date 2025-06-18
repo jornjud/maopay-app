@@ -15,15 +15,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// --- นี่คือส่วนที่แก้ไข! ---
-// 1. เราไม่ต้องสร้าง PageProps เองแล้ว
-// 2. เราจะกำหนด Type ของ props ที่รับเข้ามาโดยตรงเลย!
 type Props = {
   params: { storeId: string };
-  searchParams: { [key: string]: string | string[] | undefined };
 };
 
-// 3. กำหนด Type ของข้อมูลที่เราจะใช้
 interface Store {
   name: string;
   description: string;
@@ -36,8 +31,6 @@ interface MenuItem {
     price: number;
 }
 
-
-// 4. เอา Props ที่ถูกต้องไปใช้กับ Component
 export default function StoreDetailPage({ params }: Props) {
   const { storeId } = params; 
   const [store, setStore] = useState<Store | null>(null);
@@ -73,7 +66,14 @@ export default function StoreDetailPage({ params }: Props) {
   return (
     <div>
       <div className="relative w-full h-64 bg-gray-200">
-        <Image src={store.imageUrl} alt={store.name} layout="fill" objectFit="cover" priority />
+        {/* --- นี่คือส่วนที่แก้ไข! อัปเดต Image component --- */}
+        <Image 
+          src={store.imageUrl} 
+          alt={store.name} 
+          fill
+          style={{ objectFit: 'cover' }}
+          priority 
+        />
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <h1 className="text-4xl font-bold text-white text-center px-4">{store.name}</h1>
         </div>
