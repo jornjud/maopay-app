@@ -6,8 +6,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithRedirect, // << import ตัวใหม่
-  getRedirectResult,  // << import ตัวใหม่
+  signInWithRedirect,
+  getRedirectResult,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -26,15 +26,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // << เพิ่ม state สำหรับเช็ก redirect
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // --- useEffect ใหม่! สำหรับเช็กผลลัพธ์จากการ Redirect กลับมา ---
   useEffect(() => {
     getRedirectResult(auth)
       .then((result) => {
         if (result) {
-          // ถ้ามี result แปลว่าเพิ่งล็อกอินด้วย Google สำเร็จ
           alert("ยินดีต้อนรับเข้าสู่ maopay");
           router.push("/");
         }
@@ -45,28 +43,45 @@ export default function LoginPage() {
         console.error("Google Redirect Result Error:", err);
       })
       .finally(() => {
-        setLoading(false); // ไม่ว่าจะเกิดอะไรขึ้น ให้หยุดโหลด
+        setLoading(false);
       });
   }, [router]);
 
-
+  // ฟังก์ชันสมัครสมาชิกที่นายทำมา
   const handleSignUp = async () => {
-    // ... โค้ดส่วนนี้เหมือนเดิม ...
+    setError(null);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      alert("สมัครสมาชิกสำเร็จ! ยินดีต้อนรับ");
+      router.push("/");
+    } catch (err) {
+      setError("การสมัครสมาชิกล้มเหลว: " + (err as Error).message);
+    }
   };
 
+  // ฟังก์ชันเข้าสู่ระบบที่นายทำมา
   const handleSignIn = async () => {
-    // ... โค้ดส่วนนี้เหมือนเดิม ...
+    setError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      alert("เข้าสู่ระบบสำเร็จ!");
+      router.push("/");
+    } catch (err) {
+      setError("การเข้าสู่ระบบล้มเหลว: " + (err as Error).message);
+    }
   };
   
-  // --- ฟังก์ชัน Google Sign-In ที่เปลี่ยนใหม่! ---
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
-    const provider = new GoogleAuthProvider();
-    // แทนที่จะใช้ signInWithPopup, เราจะใช้ signInWithRedirect
-    await signInWithRedirect(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithRedirect(auth, provider);
+    } catch (err) {
+      setError("การเข้าสู่ระบบด้วย Google ล้มเหลว: " + (err as Error).message);
+      setLoading(false);
+    }
   };
-
 
   if (loading) {
     return <div className="container text-center py-12">กำลังตรวจสอบการล็อกอิน...</div>
