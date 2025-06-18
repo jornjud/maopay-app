@@ -1,3 +1,5 @@
+// src/app/stores/[storeId]/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,9 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-type Props = {
-  params: Promise<{ storeId: string }>;
-};
+// ไม่มี Props type แบบเดิมแล้ว
+// VVVVVVVVVVVVVVVV
 
 interface Store {
   name: string;
@@ -32,23 +33,20 @@ interface MenuItem {
   price: number;
 }
 
-export default function StoreDetailPage({ params }: Props) {
-  const [storeId, setStoreId] = useState<string>("");
+// แก้ตรงนี้เลย! รับ params เป็น object ธรรมดา
+export default function StoreDetailPage({ params }: { params: { storeId: string } }) {
+  // ดึง storeId มาจาก params ตรงๆ เลย ไม่ต้องใช้ state หรือ effect
+  const { storeId } = params; 
+  
   const [store, setStore] = useState<Store | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const addItemToCart = useCartStore((state) => state.addItem);
   
-  useEffect(() => {
-    const initializeParams = async () => {
-      const resolvedParams = await params;
-      setStoreId(resolvedParams.storeId);
-    };
-    
-    initializeParams();
-  }, [params]);
+  // useEffect อันแรกเอาออกไปเลย
 
   useEffect(() => {
+    // ถ้าไม่มี storeId ก็ไม่ต้องทำอะไร (เผื่อไว้เฉยๆ)
     if (!storeId) return;
     
     const fetchStoreData = async () => {
@@ -74,8 +72,9 @@ export default function StoreDetailPage({ params }: Props) {
     };
     
     fetchStoreData();
-  }, [storeId]);
+  }, [storeId]); // << Effect นี้จะทำงานเมื่อ storeId พร้อมใช้งาน
 
+  // ...โค้ดส่วนที่เหลือเหมือนเดิม...
   if (loading) return <div className="container text-center py-12">กำลังโหลด...</div>;
   if (!store) return <div className="container text-center py-12">ไม่พบข้อมูลร้าน</div>;
 
