@@ -9,8 +9,10 @@ import {
   signInWithPopup,
   onAuthStateChanged,
   AuthError,
+  User, // << เพิ่มการ import User
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase"; // << เพิ่มการ import db
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"; // << เพิ่มการ import ที่จำเป็นสำหรับ Firestore
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,7 +37,7 @@ export default function LoginPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.push("/"); // เมื่อล็อกอินสำเร็จ ให้ไปหน้าแรก
+        router.push("/");
       } else {
         setPageLoading(false);
       }
@@ -43,8 +45,35 @@ export default function LoginPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // ไม่ต้องใช้ useEffect สำหรับ getRedirectResult แล้ว เพราะเราจะใช้ Popup แทน
-  
+  // --- ฟังก์ชันใหม่! สำหรับสร้างข้อมูล User ใน Firestore ---
+  const createUserProfileDocument = async (userAuth: User) => {
+    if (!userAuth) return;
+
+    // ไปหา document ของ user คนนี้ใน collection 'users'
+    const userDocRef = doc(db, "users", userAuth.uid);
+    const userSnapshot = await getDoc(userDocRef);
+
+    // ถ้ายังไม่มีข้อมูลของ user คนนี้ใน Firestore (แสดงว่าเป็น user ใหม่จริงๆ)
+    if (!userSnapshot.exists()) {
+      const { email, displayName } = userAuth;
+      const createdAt = serverTimestamp(); // เอาเวลาปัจจุบันจาก Server
+      try {
+        // สร้าง document ใหม่ พร้อมกำหนด role เริ่มต้นเป็น 'customer'
+        await setDoc(userDocRef, {
+          displayName: displayName || email, // ถ้ามีชื่อจาก Google ก็ใช้, ไม่มีก็ใช้อีเมล
+          email,
+          role: "customer", // << ตำแหน่งเริ่มต้นของทุกลูค้าใหม่!
+          createdAt,
+        });
+      } catch (error) {
+        console.error("Error creating user profile", error);
+        // อาจจะแสดงข้อความบอก user ว่าเกิดข้อผิดพลาดก็ได้
+      }
+    }
+    // ถ้ามีข้อมูลอยู่แล้ว ก็ไม่ต้องทำอะไร ปล่อยให้เค้า login ไปตามปกติ
+  };
+  // --- จบฟังก์ชันใหม่ ---
+
   const handleSignUp = async () => {
     setError(null);
     setIsSubmitting(true);
@@ -54,7 +83,10 @@ export default function LoginPage() {
       return;
     }
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      // 1. สร้าง User ใน Authentication
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      // 2. (ของใหม่!) สร้างข้อมูล User ใน Firestore
+      await createUserProfileDocument(user);
       // onAuthStateChanged จะจัดการ redirect ให้เอง
     } catch (err) {
       const authError = err as AuthError;
@@ -70,7 +102,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged จะจัดการ redirect ให้เอง
+      // Login เฉยๆ ไม่ต้องสร้าง Profile ใหม่, onAuthStateChanged จะจัดการ redirect ให้เอง
     } catch (err) {
       const authError = err as AuthError;
       const errorMessage = authError.message || "เกิดข้อผิดพลาด";
@@ -79,19 +111,19 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   };
-  
-  // --- นี่คือฟังก์ชันที่แก้ไขใหม่ ---
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setIsSubmitting(true);
     const provider = new GoogleAuthProvider();
     try {
-      // เรียกใช้ signInWithPopup
-      await signInWithPopup(auth, provider);
-      // เมื่อสำเร็จ onAuthStateChanged จะทำงานและ redirect ไปหน้าแรกเอง
+      // 1. Sign in ด้วย Popup ของ Google
+      const { user } = await signInWithPopup(auth, provider);
+      // 2. (ของใหม่!) สร้างข้อมูล User ใน Firestore (ถ้ายังไม่มี)
+      await createUserProfileDocument(user);
+      // onAuthStateChanged จะทำงานและ redirect ไปหน้าแรกเอง
     } catch (err) {
       const authError = err as AuthError;
-      // ไม่ต้องแสดง error ถ้าผู้ใช้แค่ปิดหน้าต่าง popup
       if (authError.code !== 'auth/popup-closed-by-user') {
           const errorMessage = authError.message || "เกิดข้อผิดพลาด";
           setError("การล็อกอินด้วย Google ล้มเหลว: " + errorMessage);
@@ -105,6 +137,7 @@ export default function LoginPage() {
     return <div className="container text-center py-12">กำลังโหลด...</div>
   }
 
+  // --- ส่วนของ JSX เหมือนเดิม ไม่ได้แก้ ---
   return (
     <div className="container mx-auto flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-md">
