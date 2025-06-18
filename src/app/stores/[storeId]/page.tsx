@@ -15,16 +15,36 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-interface Store { name: string; description: string; imageUrl: string; }
-interface MenuItem { id: string; name: string; description: string; price: number; }
+// --- นี่คือส่วนที่แก้ไข! ---
+// 1. กำหนด Type ของ Props ให้ถูกต้องตามหลัก Next.js
+interface PageProps {
+  params: {
+    storeId: string;
+  };
+}
 
-export default function StoreDetailPage({ params }: { params: { storeId: string } }) {
+// 2. กำหนด Type ของข้อมูลที่เราจะใช้
+interface Store {
+  name: string;
+  description: string;
+  imageUrl: string;
+}
+interface MenuItem {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+}
+
+
+// 3. เอา PageProps ไปใช้กับ Component ของเรา
+export default function StoreDetailPage({ params }: PageProps) {
+  const { storeId } = params; // ดึง storeId ออกมาใช้ง่ายๆ
   const [store, setStore] = useState<Store | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const addItemToCart = useCartStore((state) => state.addItem);
-  const { storeId } = params;
-
+  
   useEffect(() => {
     const fetchStoreData = async () => {
       setLoading(true);
