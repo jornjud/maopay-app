@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, getDocs, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ import {
 
 // --- Type Definitions ---
 interface UserProfile { role: 'customer' | 'owner' | 'admin'; }
-interface Order { id: string; status: string; totalPrice: number; items: { name: string; quantity: number }[]; }
+interface Order { id: string; status: string; totalPrice: number; items: { name: string; quantity: number }[]; createdAt: any; }
 interface Store { id: string; name: string; ownerId: string; }
 interface MenuItem { id: string; name: string; description: string; price: number; }
 
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- New Menu Item States ---
   const [newMenuName, setNewMenuName] = useState('');
@@ -61,15 +62,19 @@ export default function DashboardPage() {
       if (doc.exists()) {
         const profile = doc.data() as UserProfile;
         setUserProfile(profile);
-        if (profile.role !== 'admin') {
+        if (profile.role === 'owner') {
             findAndSetOwnedStore(user.uid);
         }
+      } else {
+        // Optional: Handle case where user is authenticated but has no profile doc
+        setUserProfile(null);
       }
       setLoading(false);
     });
 
+    // Fetch stores only if the user is an admin
     if (userProfile?.role === 'admin') {
-      const storesQuery = query(collection(db, "stores"));
+      const storesQuery = query(collection(db, "stores"), orderBy("name"));
       const unsubStores = onSnapshot(storesQuery, (snapshot) => {
         setStores(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store)));
       });
@@ -78,7 +83,7 @@ export default function DashboardPage() {
     
     return () => unsubUser();
 
-  }, [user, userProfile?.role]);
+  }, [user, userProfile?.role]); // Re-run if user or role changes
 
   useEffect(() => {
     if (!selectedStoreId) {
@@ -92,7 +97,7 @@ export default function DashboardPage() {
       setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
     });
 
-    const menuQuery = query(collection(db, "stores", selectedStoreId, "menuItems"));
+    const menuQuery = query(collection(db, "stores", selectedStoreId, "menuItems"), orderBy("name"));
     const unsubMenu = onSnapshot(menuQuery, (snapshot) => {
       setMenuItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MenuItem)));
     });
@@ -104,17 +109,21 @@ export default function DashboardPage() {
   // --- Helper Functions ---
   const findAndSetOwnedStore = async (ownerId: string) => {
     const q = query(collection(db, "stores"), where("ownerId", "==", ownerId));
-    const querySnapshot = await getDoc(q);
+    // ***** FIX: Use getDocs for a query, not getDoc *****
+    const querySnapshot = await getDocs(q); 
     if (!querySnapshot.empty) {
+      // Assuming one owner owns one store for now
       setSelectedStoreId(querySnapshot.docs[0].id);
     }
   };
 
-  const handleAddMenuItem = async () => {
+  const handleAddMenuItem = async (event: React.FormEvent) => {
+    event.preventDefault(); // Prevent default form submission
     if (!newMenuName || !newMenuPrice || !selectedStoreId) {
         alert("กรุณากรอกชื่อและราคาเมนู");
         return;
     }
+    setIsSubmitting(true);
     try {
         const menuItemsRef = collection(db, "stores", selectedStoreId, "menuItems");
         await addDoc(menuItemsRef, {
@@ -125,10 +134,12 @@ export default function DashboardPage() {
         setNewMenuName('');
         setNewMenuDesc('');
         setNewMenuPrice(0);
-        alert("เพิ่มเมนูสำเร็จ!");
+        // This will automatically close the dialog because of DialogClose
     } catch (error) {
         alert("เกิดข้อผิดพลาดในการเพิ่มเมนู");
         console.error(error);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -137,19 +148,41 @@ export default function DashboardPage() {
     try {
         const menuItemRef = doc(db, "stores", selectedStoreId, "menuItems", menuItemId);
         await deleteDoc(menuItemRef);
-        alert("ลบเมนูสำเร็จ!");
     } catch (error) {
         alert("เกิดข้อผิดพลาดในการลบเมนู");
         console.error(error);
     }
   };
 
-  // ... (handleNotifyRiders function can be added here later) ...
+  const handleUpdateStatus = async (orderId: string, status: string) => {
+    try {
+      const orderRef = doc(db, "orders", orderId);
+      await updateDoc(orderRef, { status: status });
+    } catch (error) {
+      console.error("Error updating status: ", error);
+      alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
+    }
+  };
+
+  const handleNotifyRiders = async (orderId: string) => {
+      if (!confirm("แน่ใจนะว่าจะแจ้งให้ไรเดอร์ไปรับ?")) return;
+      try {
+        await fetch('/api/orders/notify-riders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId }),
+        });
+        // The status update to 'notifying_riders' is handled in the API route now
+      } catch (error) {
+        console.error(error);
+        alert("ส่งแจ้งเตือนล้มเหลว");
+      }
+  };
 
 
   // --- Render Logic ---
   if (authLoading || loading) return <div className="container text-center py-12">กำลังโหลดข้อมูล...</div>;
-  if (!userProfile) return <div className="container text-center py-12">ไม่พบข้อมูลผู้ใช้</div>;
+  if (!userProfile) return <div className="container text-center py-12">ไม่พบข้อมูลผู้ใช้ หรือคุณอาจไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
 
 
   return (
@@ -159,10 +192,10 @@ export default function DashboardPage() {
 
       {/* Admin Store Selector */}
       {userProfile.role === 'admin' && (
-        <div className="mb-8">
-             <Label>เลือกร้านค้าที่จะจัดการ</Label>
+        <div className="mb-8 max-w-sm">
+             <Label htmlFor="store-selector">เลือกร้านค้าที่จะจัดการ</Label>
              <Select onValueChange={setSelectedStoreId} value={selectedStoreId}>
-                <SelectTrigger>
+                <SelectTrigger id="store-selector">
                     <SelectValue placeholder="-- เลือกร้านค้า --" />
                 </SelectTrigger>
                 <SelectContent>
@@ -174,12 +207,20 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {!selectedStoreId && userProfile.role !== 'customer' && (
+          <div className="text-center py-12 bg-white rounded-lg shadow">
+              <p className="text-xl text-gray-600">
+                  {userProfile.role === 'admin' ? 'กรุณาเลือกร้านค้าเพื่อเริ่มการจัดการ' : 'ไม่พบร้านค้าที่คุณเป็นเจ้าของ'}
+              </p>
+          </div>
+      )}
+
       {selectedStoreId && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Menu Management Section */}
             <div>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
+                    <CardHeader className="flex-row items-center justify-between">
                         <div>
                             <CardTitle>จัดการเมนู</CardTitle>
                             <CardDescription>เพิ่ม/ลบเมนูของร้านคุณ</CardDescription>
@@ -189,11 +230,12 @@ export default function DashboardPage() {
                                 <Button>เพิ่มเมนูใหม่</Button>
                             </DialogTrigger>
                             <DialogContent>
+                              <form onSubmit={handleAddMenuItem}>
                                 <DialogHeader><DialogTitle>เพิ่มเมนูใหม่</DialogTitle></DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <Label htmlFor="name" className="text-right">ชื่อเมนู</Label>
-                                        <Input id="name" value={newMenuName} onChange={(e) => setNewMenuName(e.target.value)} className="col-span-3" />
+                                        <Input id="name" value={newMenuName} onChange={(e) => setNewMenuName(e.target.value)} className="col-span-3" required />
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <Label htmlFor="desc" className="text-right">คำอธิบาย</Label>
@@ -201,40 +243,50 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <Label htmlFor="price" className="text-right">ราคา</Label>
-                                        <Input id="price" type="number" value={newMenuPrice} onChange={(e) => setNewMenuPrice(Number(e.target.value))} className="col-span-3" />
+                                        <Input id="price" type="number" value={newMenuPrice} onChange={(e) => setNewMenuPrice(Number(e.target.value))} className="col-span-3" required />
                                     </div>
                                 </div>
                                 <DialogFooter>
                                     <DialogClose asChild>
-                                        <Button type="submit" onClick={handleAddMenuItem}>บันทึก</Button>
+                                        <Button type="submit" disabled={isSubmitting}>
+                                            {isSubmitting ? "กำลังบันทึก..." : "บันทึก"}
+                                        </Button>
                                     </DialogClose>
                                 </DialogFooter>
+                              </form>
                             </DialogContent>
                         </Dialog>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-2">
                         {menuItems.length > 0 ? menuItems.map(item => (
-                            <div key={item.id} className="flex justify-between items-center p-2 border-b">
+                            <div key={item.id} className="flex justify-between items-center p-2 border-b last:border-b-0">
                                 <span>{item.name} - {item.price} บาท</span>
                                 <Button variant="destructive" size="sm" onClick={() => handleDeleteMenuItem(item.id)}>ลบ</Button>
                             </div>
-                        )) : <p>ยังไม่มีเมนูในร้านนี้</p>}
+                        )) : <p className="text-gray-500">ยังไม่มีเมนูในร้านนี้</p>}
                     </CardContent>
                 </Card>
             </div>
             {/* Order List Section */}
             <div>
                 <Card>
-                    <CardHeader><CardTitle>รายการออเดอร์</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>รายการออเดอร์ล่าสุด</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
                     {orders.length > 0 ? orders.map(order => (
-                        <div key={order.id} className="p-3 border rounded-md">
+                        <Card key={order.id} className="p-4">
                            <p><strong>Order ID:</strong> {order.id.substring(0,6)}...</p>
-                           <p><strong>สถานะ:</strong> {order.status}</p>
+                           <ul className="list-disc pl-5 my-2">
+                             {order.items.map(item => <li key={item.name}>{item.name} x {item.quantity}</li>)}
+                           </ul>
                            <p><strong>ยอดรวม:</strong> {order.totalPrice} บาท</p>
-                           {/* Add notify rider button later */}
-                        </div>
-                    )) : <p>ยังไม่มีออเดอร์</p>}
+                           <p><strong>สถานะ:</strong> <span className="font-semibold">{order.status}</span></p>
+                           <div className="flex gap-2 mt-3">
+                               {order.status === 'pending' && <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(order.id, 'cooking')}>รับออเดอร์</Button>}
+                               {order.status === 'cooking' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleNotifyRiders(order.id)}>แจ้งไรเดอร์</Button>}
+                               {order.status !== 'completed' && order.status !== 'cancelled' && <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(order.id, 'cancelled')}>ยกเลิก</Button>}
+                           </div>
+                        </Card>
+                    )) : <p className="text-gray-500">ยังไม่มีออเดอร์</p>}
                     </CardContent>
                 </Card>
             </div>
