@@ -1,12 +1,11 @@
 // src/app/dashboard/store/page.tsx
-"use client"; // << เพิ่มตรงนี้เลยจ้า! #ClientComponent #NextJS
+"use client"; // << ต้องอยู่บนสุดแบบนี้เลยนะ! #ClientComponent #NoMoreErrors
 
-import React, { useState, useEffect } from 'react'; // 
+import React, { useState, useEffect } from 'react';
 // FIX: Changed the import path to use the alias with explicit .ts extension.
 // Based on your tsconfig.json, '@/lib/firebase.ts' should correctly resolve to 'src/lib/firebase.ts'.
 // This is the standard and most reliable way for Next.js and TypeScript projects.
 import { db, collection, query, where, onSnapshot, doc, updateDoc, auth, appId } from '@/lib/firebase.ts';
-import { onAuthStateChanged } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore'; // Import Timestamp for order createdAt
 
 // Define interface for menu item structure
@@ -36,18 +35,18 @@ interface Order {
 // Main Store Owner Dashboard component
 export default function App() {
   // State to simulate user role. In a real app, this would come from Firebase Auth/Firestore.
-  const [userRole, setUserRole] = useState<'loading' | 'admin' | 'user' | 'store_owner' | 'rider' | 'guest'>('loading'); // 
-  const [userId, setUserId] = useState<string | null>(null); // 
-  const [isLoading, setIsLoading] = useState(true); // 
-  const [storeInfo, setStoreInfo] = useState<any>(null); // To store the specific store's data // 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]); // To store menu items for this store // 
-  const [storeOrders, setStoreOrders] = useState<Order[]>([]); // To store orders for this store // 
-  const [message, setMessage] = useState<{ type: string; text: string } | null>(null); // 
+  const [userRole, setUserRole] = useState<'loading' | 'admin' | 'user' | 'store_owner' | 'rider' | 'guest'>('loading');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [storeInfo, setStoreInfo] = useState<any>(null); // To store the specific store's data
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]); // To store menu items for this store
+  const [storeOrders, setStoreOrders] = useState<Order[]>([]); // To store orders for this store
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   // States for Add/Edit Menu Item Modal
-  const [isModalOpen, setIsModalOpen] = useState(false); // 
-  const [currentMenuItem, setCurrentMenuItem] = useState<MenuItem | null>(null); // For editing, null for adding new // 
-  const [menuForm, setMenuForm] = useState({ // 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentMenuItem, setCurrentMenuItem] = useState<MenuItem | null>(null); // For editing, null for adding new
+  const [menuForm, setMenuForm] = useState({
     name: '',
     description: '',
     price: '',
@@ -56,7 +55,7 @@ export default function App() {
   });
 
   // Effect to handle user authentication state and fetch user role
-  useEffect(() => { // 
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
@@ -112,7 +111,7 @@ export default function App() {
   }, []);
 
   // Effect to fetch menu items for the specific store
-  useEffect(() => { // 
+  useEffect(() => {
     if (userRole === 'store_owner' && storeInfo?.id) {
       const menuItemsRef = collection(db, `artifacts/${appId}/public/data/stores/${storeInfo.id}/menu`);
       const unsubscribeMenuItems = onSnapshot(menuItemsRef, (snapshot) => {
@@ -131,7 +130,7 @@ export default function App() {
   }, [userRole, storeInfo?.id]); // Re-run when userRole or storeInfo changes
 
   // Effect to fetch orders for the specific store
-  useEffect(() => { // 
+  useEffect(() => {
     if (userRole === 'store_owner' && storeInfo?.id) {
       const ordersRef = collection(db, `artifacts/${appId}/public/data/orders`);
       // Query orders for this store, excluding 'delivered' and 'cancelled'
@@ -306,8 +305,7 @@ export default function App() {
             กลับหน้าหลัก
           </button>
         </div>
-      </div>
-    );
+      );
   }
 
   // Render the Store Owner Dashboard if user is store_owner and storeInfo is present

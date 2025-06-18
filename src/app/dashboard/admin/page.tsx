@@ -1,10 +1,10 @@
 // src/app/dashboard/admin/page.tsx
-"use client"; // << เพิ่มตรงนี้เลยจ้า! #ClientComponent #NextJS
+"use client"; // << ต้องอยู่บนสุดแบบนี้เลยนะ! #ClientComponent #NoMoreErrors
 
-import React, { useState, useEffect } from 'react'; // 
+import React, { useState, useEffect } from 'react';
 // FIX: Changed absolute import path '@/lib/firebase' to a relative path '../../../lib/firebase'
 // This resolves the "Could not resolve" error caused by path alias not being recognized in the environment.
-import { db, collection, query, where, onSnapshot, doc, updateDoc, auth, appId } from '../../../lib/firebase'; // Import Firestore and Auth functions 
+import { db, collection, query, where, onSnapshot, doc, updateDoc, auth, appId } from '../../../lib/firebase'; // Import Firestore and Auth functions
 import { onAuthStateChanged } from 'firebase/auth'; // Import onAuthStateChanged specifically
 
 // Define interfaces for data structure for better type safety
@@ -31,15 +31,15 @@ interface Rider {
 
 // Main Admin Dashboard component
 export default function App() {
-  const [userRole, setUserRole] = useState<'loading' | 'admin' | 'user' | 'store_owner' | 'rider' | 'guest'>('loading'); // 
-  const [userId, setUserId] = useState<string | null>(null); // 
-  const [isLoading, setIsLoading] = useState(true); // 
-  const [pendingStores, setPendingStores] = useState<Store[]>([]); // 
-  const [pendingRiders, setPendingRiders] = useState<Rider[]>([]); // 
-  const [message, setMessage] = useState<{ type: string; text: string } | null>(null); // 
+  const [userRole, setUserRole] = useState<'loading' | 'admin' | 'user' | 'store_owner' | 'rider' | 'guest'>('loading');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pendingStores, setPendingStores] = useState<Store[]>([]);
+  const [pendingRiders, setPendingRiders] = useState<Rider[]>([]);
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   // Effect to handle user authentication state and fetch user role
-  useEffect(() => { // 
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
@@ -77,7 +77,7 @@ export default function App() {
   }, []);
 
   // Effect to fetch pending stores
-  useEffect(() => { // 
+  useEffect(() => {
     if (userRole === 'admin' && userId) { // Only fetch if authenticated as admin
       const storesRef = collection(db, `artifacts/${appId}/public/data/stores`);
       const q = query(storesRef, where('status', '==', 'pending'));
@@ -98,7 +98,7 @@ export default function App() {
   }, [userRole, userId]); // Re-run when userRole or userId changes
 
   // Effect to fetch pending riders
-  useEffect(() => { // 
+  useEffect(() => {
     if (userRole === 'admin' && userId) { // Only fetch if authenticated as admin
       const ridersRef = collection(db, `artifacts/${appId}/public/data/riders`);
       const q = query(ridersRef, where('status', '==', 'pending'));

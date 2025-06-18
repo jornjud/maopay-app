@@ -1,7 +1,7 @@
 // src/app/dashboard/rider/page.tsx
-"use client"; // << เพิ่มตรงนี้เลยจ้า! #ClientComponent #NextJS
+"use client"; // << ต้องอยู่บนสุดแบบนี้เลยนะ! #ClientComponent #NoMoreErrors
 
-import React, { useState, useEffect } from 'react'; // 
+import React, { useState, useEffect } from 'react';
 // FIX: Changed import path to use '@/lib/firebase' as specified in tsconfig.json paths.
 // This is the standard way to import from src/ in Next.js projects with TypeScript.
 // The previous relative path '../../../lib/firebase.ts' was causing resolution issues in the build environment.
@@ -23,14 +23,14 @@ interface Order {
 // Main Rider Dashboard component
 export default function App() {
   // State to simulate user role. In a real app, this would come from Firebase Auth/Firestore.
-  const [userRole, setUserRole] = useState<'loading' | 'admin' | 'user' | 'store_owner' | 'rider' | 'guest'>('loading'); // 
-  const [userId, setUserId] = useState<string | null>(null); // 
-  const [isLoading, setIsLoading] = useState(true); // 
-  const [assignedOrders, setAssignedOrders] = useState<Order[]>([]); // 
-  const [message, setMessage] = useState<{ type: string; text: string } | null>(null); // 
+  const [userRole, setUserRole] = useState<'loading' | 'admin' | 'user' | 'store_owner' | 'rider' | 'guest'>('loading');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [assignedOrders, setAssignedOrders] = useState<Order[]>([]);
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   // Effect to handle user authentication state and fetch user role
-  useEffect(() => { // 
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
@@ -67,7 +67,7 @@ export default function App() {
   }, []);
 
   // Effect to fetch assigned orders for the specific rider
-  useEffect(() => { // 
+  useEffect(() => {
     // Only fetch if authenticated as a rider and userId is available
     if (userRole === 'rider' && userId) {
       // In a real application, orders would have a 'riderId' field to assign to a specific rider.
