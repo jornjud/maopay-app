@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+// src/app/riders/register/page.tsx
+"use client"; // << เพิ่มตรงนี้เลยจ้า! #ClientComponent #NextJS
+
+import React, { useState } from 'react'; // 
 
 // Main App component for the rider registration page
 export default function App() {
   // State to hold form data for rider registration
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState({ // 
     fullName: '',
     phone: '',
     email: '',
@@ -15,7 +18,7 @@ export default function App() {
   });
 
   // State for displaying messages to the user (e.g., success, error)
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [message, setMessage] = useState({ type: '', text: '' }); // 
 
   // Function to handle input changes and update form data state
   const handleChange = (e) => {
