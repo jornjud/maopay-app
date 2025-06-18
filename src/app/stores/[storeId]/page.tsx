@@ -16,14 +16,14 @@ import {
 } from "@/components/ui/card";
 
 // --- นี่คือส่วนที่แก้ไข! ---
-// 1. กำหนด Type ของ Props ให้ถูกต้องตามหลัก Next.js
-interface PageProps {
-  params: {
-    storeId: string;
-  };
-}
+// 1. เราไม่ต้องสร้าง PageProps เองแล้ว
+// 2. เราจะกำหนด Type ของ props ที่รับเข้ามาโดยตรงเลย!
+type Props = {
+  params: { storeId: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+};
 
-// 2. กำหนด Type ของข้อมูลที่เราจะใช้
+// 3. กำหนด Type ของข้อมูลที่เราจะใช้
 interface Store {
   name: string;
   description: string;
@@ -37,9 +37,9 @@ interface MenuItem {
 }
 
 
-// 3. เอา PageProps ไปใช้กับ Component ของเรา
-export default function StoreDetailPage({ params }: PageProps) {
-  const { storeId } = params; // ดึง storeId ออกมาใช้ง่ายๆ
+// 4. เอา Props ที่ถูกต้องไปใช้กับ Component
+export default function StoreDetailPage({ params }: Props) {
+  const { storeId } = params; 
   const [store, setStore] = useState<Store | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
