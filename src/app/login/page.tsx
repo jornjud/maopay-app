@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, // << ตัวที่ 1 ที่เราจะเอากลับมาใช้
+  signInWithEmailAndPassword,   // << ตัวที่ 2 ที่เราจะเอากลับมาใช้
   GoogleAuthProvider,
   signInWithRedirect,
   getRedirectResult,
@@ -40,47 +40,46 @@ export default function LoginPage() {
       .catch((err) => {
         const errorMessage = err.message || 'เกิดข้อผิดพลาดในการล็อกอินด้วย Google';
         setError(errorMessage);
-        console.error("Google Redirect Result Error:", err);
       })
       .finally(() => {
         setLoading(false);
       });
   }, [router]);
 
-  // ฟังก์ชันสมัครสมาชิกที่นายทำมา
+  // --- เอาฟังก์ชันที่หายไปกลับมา! ---
   const handleSignUp = async () => {
     setError(null);
+    if (password.length < 6) {
+        setError("รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร");
+        return;
+    }
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       alert("สมัครสมาชิกสำเร็จ! ยินดีต้อนรับ");
       router.push("/");
-    } catch (err) {
-      setError("การสมัครสมาชิกล้มเหลว: " + (err as Error).message);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
+        setError("การสมัครสมาชิกล้มเหลว: " + errorMessage);
     }
   };
 
-  // ฟังก์ชันเข้าสู่ระบบที่นายทำมา
   const handleSignIn = async () => {
     setError(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       alert("เข้าสู่ระบบสำเร็จ!");
       router.push("/");
-    } catch (err) {
-      setError("การเข้าสู่ระบบล้มเหลว: " + (err as Error).message);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
+        setError("การเข้าสู่ระบบล้มเหลว: " + errorMessage);
     }
   };
   
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-    } catch (err) {
-      setError("การเข้าสู่ระบบด้วย Google ล้มเหลว: " + (err as Error).message);
-      setLoading(false);
-    }
+    const provider = new GoogleAuthProvider();
+    await signInWithRedirect(auth, provider);
   };
 
   if (loading) {
