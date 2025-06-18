@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 
 type Props = {
-  params: { storeId: string };
+  params: Promise<{ storeId: string }>;
 };
 
 interface Store {
@@ -24,21 +24,33 @@ interface Store {
   description: string;
   imageUrl: string;
 }
+
 interface MenuItem {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
+  id: string;
+  name: string;
+  description: string;
+  price: number;
 }
 
 export default function StoreDetailPage({ params }: Props) {
-  const { storeId } = params; 
+  const [storeId, setStoreId] = useState<string>("");
   const [store, setStore] = useState<Store | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const addItemToCart = useCartStore((state) => state.addItem);
   
   useEffect(() => {
+    const initializeParams = async () => {
+      const resolvedParams = await params;
+      setStoreId(resolvedParams.storeId);
+    };
+    
+    initializeParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!storeId) return;
+    
     const fetchStoreData = async () => {
       setLoading(true);
       try {
@@ -49,7 +61,10 @@ export default function StoreDetailPage({ params }: Props) {
 
         const menuItemsColRef = collection(db, "stores", storeId, "menuItems");
         const menuItemsSnapshot = await getDocs(menuItemsColRef);
-        const menuData = menuItemsSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<MenuItem, 'id'>)}));
+        const menuData = menuItemsSnapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...(doc.data() as Omit<MenuItem, 'id'>)
+        }));
         setMenuItems(menuData);
       } catch (err) {
         console.error(err);
@@ -57,6 +72,7 @@ export default function StoreDetailPage({ params }: Props) {
         setLoading(false);
       }
     };
+    
     fetchStoreData();
   }, [storeId]);
 
@@ -66,7 +82,6 @@ export default function StoreDetailPage({ params }: Props) {
   return (
     <div>
       <div className="relative w-full h-64 bg-gray-200">
-        {/* --- นี่คือส่วนที่แก้ไข! อัปเดต Image component --- */}
         <Image 
           src={store.imageUrl} 
           alt={store.name} 
@@ -87,7 +102,9 @@ export default function StoreDetailPage({ params }: Props) {
                 <CardTitle>{item.name}</CardTitle>
                 <CardDescription>{item.description}</CardDescription>
               </CardHeader>
-              <CardContent><p className="text-lg font-semibold">{item.price} บาท</p></CardContent>
+              <CardContent>
+                <p className="text-lg font-semibold">{item.price} บาท</p>
+              </CardContent>
               <CardFooter>
                 <Button 
                   className="w-full bg-red-600 hover:bg-red-700"
