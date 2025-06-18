@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
-// ฟังก์ชันสำหรับส่งข้อความไปที่ Telegram
 async function sendTelegramMessage(chatId: string, text: string) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token || !chatId) {
@@ -26,7 +25,6 @@ async function sendTelegramMessage(chatId: string, text: string) {
     }
 }
 
-// Handler สำหรับ POST request
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -36,7 +34,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'ไม่พบ ID ออเดอร์' }, { status: 400 });
         }
 
-        // 1. ดึงข้อมูลออเดอร์
         const orderDocRef = doc(db, "orders", orderId);
         const orderDocSnap = await getDoc(orderDocRef);
 
@@ -46,36 +43,32 @@ export async function POST(request: Request) {
         const orderData = orderDocSnap.data();
         const storeId = orderData.storeId;
 
-        // 2. ดึงข้อมูลร้านค้าเพื่อเอาชื่อร้าน
         const storeDocRef = doc(db, "stores", storeId);
         const storeDocSnap = await getDoc(storeDocRef);
         const storeName = storeDocSnap.exists() ? storeDocSnap.data().name : 'ไม่พบชื่อร้าน';
         
-        // 3. ดึง Chat ID ของกลุ่มไรเดอร์จาก .env
         const riderChatId = process.env.TELEGRAM_RIDER_GROUP_CHAT_ID;
         if (!riderChatId) {
             throw new Error("ไม่ได้ตั้งค่า TELEGRAM_RIDER_GROUP_CHAT_ID");
         }
 
-        // 4. สร้างข้อความแจ้งงาน
         let message = `🛵💨 *มีงานใหม่เข้า!* 🛵💨\n\n`;
         message += `*ร้าน:* ${storeName}\n`;
         message += `*ยอดรวม:* ${orderData.totalPrice} บาท\n`;
         message += `*สถานะ:* รอลั่น!\n\n`;
         message += `ใครใกล้ กดรับงานได้เลย!`;
         
-        // 5. ส่งแจ้งเตือนไปที่กลุ่มไรเดอร์
         await sendTelegramMessage(riderChatId, message);
         
-        // 6. อัปเดตสถานะออเดอร์ใน Firestore
         await updateDoc(orderDocRef, {
-            status: 'notifying_riders' // เปลี่ยนสถานะเป็น "กำลังแจ้งไรเดอร์"
+            status: 'notifying_riders'
         });
 
         return NextResponse.json({ message: 'ส่งแจ้งเตือนให้ไรเดอร์เรียบร้อย!' }, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) { // << แก้ไข: เปลี่ยนจาก any เป็น unknown
+        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาด';
         console.error("Error notifying riders:", error);
-        return NextResponse.json({ error: error.message || 'เกิดข้อผิดพลาด' }, { status: 500 });
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

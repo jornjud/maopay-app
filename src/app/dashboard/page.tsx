@@ -4,17 +4,17 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy } from "firebase/firestore"; // << แก้ไข: เอา 'where' ที่ไม่ได้ใช้ออก
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter, // << แก้ไข: Import CardFooter ที่ลืมไป
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-// กำหนดหน้าตาของ Order
 interface Order {
   id: string;
   status: string;
@@ -33,19 +33,15 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useEffect สำหรับเช็กการล็อกอิน
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [user, authLoading, router]);
 
-  // useEffect สำหรับดึงข้อมูลออเดอร์แบบ Real-time!
   useEffect(() => {
-    if (!user) return; // ถ้ายังไม่มี user ก็ไม่ต้องทำอะไร
+    if (!user) return; 
 
-    // **หมายเหตุ:** ตอนนี้เราจะดึงทุกออเดอร์มาโชว์ก่อน
-    // ในอนาคตเราจะแก้ให้ดึงเฉพาะออเดอร์ของร้านที่ล็อกอินอยู่
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -57,11 +53,9 @@ export default function DashboardPage() {
       setLoading(false);
     });
 
-    // คืนค่า unsubscribe เพื่อปิดการเชื่อมต่อตอนออกจากหน้านี้
     return () => unsubscribe();
   }, [user]);
 
-  // ฟังก์ชันสำหรับยิง API แจ้งไรเดอร์
   const handleNotifyRiders = async (orderId: string) => {
     if (!confirm("ยืนยันการส่งงานให้ไรเดอร์?")) return;
 
@@ -74,8 +68,9 @@ export default function DashboardPage() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
         alert('ส่งแจ้งเตือนให้ไรเดอร์เรียบร้อย!');
-    } catch (error: any) {
-        alert(`เกิดข้อผิดพลาด: ${error.message}`);
+    } catch (error: unknown) { // << แก้ไข: เปลี่ยนจาก any เป็น unknown
+        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาด';
+        alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
     }
   };
 

@@ -41,8 +41,9 @@ export default function CartPage() {
         clearCart();
         router.push('/');
 
-    } catch (error: any) {
-        alert(`เกิดข้อผิดพลาด: ${error.message}`);
+    } catch (error: unknown) { // << แก้ไข: เปลี่ยนจาก any เป็น unknown
+        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดบางอย่าง';
+        alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
     } finally {
         setIsSubmitting(false);
     }
