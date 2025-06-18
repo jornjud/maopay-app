@@ -4,15 +4,14 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy, doc, getDocs, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { collection, query, where, onSnapshot, orderBy, doc, getDocs, addDoc, deleteDoc, updateDoc, Timestamp } from "firebase/firestore";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -30,7 +29,7 @@ import {
 
 // --- Type Definitions ---
 interface UserProfile { role: 'customer' | 'owner' | 'admin'; }
-interface Order { id: string; status: string; totalPrice: number; items: { name: string; quantity: number }[]; createdAt: any; }
+interface Order { id: string; status: string; totalPrice: number; items: { name: string; quantity: number }[]; createdAt: Timestamp; }
 interface Store { id: string; name: string; ownerId: string; }
 interface MenuItem { id: string; name: string; description: string; price: number; }
 
@@ -66,13 +65,11 @@ export default function DashboardPage() {
             findAndSetOwnedStore(user.uid);
         }
       } else {
-        // Optional: Handle case where user is authenticated but has no profile doc
         setUserProfile(null);
       }
       setLoading(false);
     });
 
-    // Fetch stores only if the user is an admin
     if (userProfile?.role === 'admin') {
       const storesQuery = query(collection(db, "stores"), orderBy("name"));
       const unsubStores = onSnapshot(storesQuery, (snapshot) => {
@@ -83,7 +80,7 @@ export default function DashboardPage() {
     
     return () => unsubUser();
 
-  }, [user, userProfile?.role]); // Re-run if user or role changes
+  }, [user, userProfile?.role]);
 
   useEffect(() => {
     if (!selectedStoreId) {
@@ -109,16 +106,14 @@ export default function DashboardPage() {
   // --- Helper Functions ---
   const findAndSetOwnedStore = async (ownerId: string) => {
     const q = query(collection(db, "stores"), where("ownerId", "==", ownerId));
-    // ***** FIX: Use getDocs for a query, not getDoc *****
     const querySnapshot = await getDocs(q); 
     if (!querySnapshot.empty) {
-      // Assuming one owner owns one store for now
       setSelectedStoreId(querySnapshot.docs[0].id);
     }
   };
 
   const handleAddMenuItem = async (event: React.FormEvent) => {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault();
     if (!newMenuName || !newMenuPrice || !selectedStoreId) {
         alert("กรุณากรอกชื่อและราคาเมนู");
         return;
@@ -134,7 +129,6 @@ export default function DashboardPage() {
         setNewMenuName('');
         setNewMenuDesc('');
         setNewMenuPrice(0);
-        // This will automatically close the dialog because of DialogClose
     } catch (error) {
         alert("เกิดข้อผิดพลาดในการเพิ่มเมนู");
         console.error(error);
@@ -172,7 +166,6 @@ export default function DashboardPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ orderId }),
         });
-        // The status update to 'notifying_riders' is handled in the API route now
       } catch (error) {
         console.error(error);
         alert("ส่งแจ้งเตือนล้มเหลว");
@@ -190,7 +183,6 @@ export default function DashboardPage() {
       <h1 className="text-3xl font-bold text-gray-800 mb-4">แดชบอร์ด</h1>
       <p className="text-lg mb-8">ยินดีต้อนรับ, <span className="font-semibold">{user?.displayName || user?.email}</span> (ตำแหน่ง: {userProfile.role})</p>
 
-      {/* Admin Store Selector */}
       {userProfile.role === 'admin' && (
         <div className="mb-8 max-w-sm">
              <Label htmlFor="store-selector">เลือกร้านค้าที่จะจัดการ</Label>
@@ -217,7 +209,6 @@ export default function DashboardPage() {
 
       {selectedStoreId && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Menu Management Section */}
             <div>
                 <Card>
                     <CardHeader className="flex-row items-center justify-between">
@@ -267,7 +258,6 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
-            {/* Order List Section */}
             <div>
                 <Card>
                     <CardHeader><CardTitle>รายการออเดอร์ล่าสุด</CardTitle></CardHeader>
