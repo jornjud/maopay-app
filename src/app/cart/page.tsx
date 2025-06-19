@@ -1,105 +1,136 @@
 "use client";
 
 import { useState } from 'react';
-import { useCartStore } from "@/store/cartStore";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { useCartStore } from '@/store/cartStore';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import Image from 'next/image';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
+import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
 
-export default function CartPage() {
-  const { items, storeId, increaseQuantity, decreaseQuantity, removeItem, clearCart } = useCartStore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const CartPage = () => {
+  const { items, removeFromCart, updateQuantity, clearCart } = useCartStore();
+  const { user } = useAuth();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalPrice = items.reduce((total, item) => total + item.price * item.quantity, 0);
+  const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
-  const handleCreateOrder = async () => {
-    if (!storeId) {
-        alert("เกิดข้อผิดพลาด: ไม่พบรหัสร้านค้า");
-        return;
+  const handleCheckout = async () => {
+    if (!user) {
+      router.push('/login?redirect=/cart');
+      return;
     }
 
-    setIsSubmitting(true);
+    if (items.length === 0) {
+      setError("ตะกร้าของคุณว่างเปล่า");
+      return;
+    }
+    
+    const storeId = items.length > 0 ? items[0].storeId : null;
+
+    if (!storeId) {
+      setError("ไม่สามารถดำเนินการต่อได้: ไม่พบข้อมูลร้านค้าในตะกร้า");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-        const response = await fetch('/api/orders/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                items,
-                totalPrice,
-                storeId,
-            }),
-        });
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          items: items,
+          total: total,
+          storeId: storeId,
+        }),
+      });
 
-        const result = await response.json();
+      const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(result.error || 'เกิดข้อผิดพลาดบางอย่าง');
-        }
+      if (!response.ok) {
+        throw new Error(data.message || 'Network response was not ok');
+      }
 
-        alert(`สร้างออเดอร์สำเร็จ! ID ออเดอร์ของคุณคือ: ${result.orderId}`);
-        clearCart();
-        router.push('/');
+      clearCart();
+      router.push(`/history`);
+      // หรืออาจจะไปหน้าขอบคุณพร้อมส่ง orderId -> router.push(`/thank-you?orderId=${data.orderId}`);
 
-    } catch (error: unknown) { // << แก้ไข: เปลี่ยนจาก any เป็น unknown
-        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดบางอย่าง';
-        alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
+    } catch (err: any) {
+      console.error('Failed to create order:', err);
+      setError(err.message || 'เกิดข้อผิดพลาดบางอย่าง โปรดลองอีกครั้ง');
     } finally {
-        setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-
   return (
-    <div className="container mx-auto px-6 py-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">ตะกร้าสินค้าของคุณ</h1>
-
-      {items.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-xl text-gray-500 mb-4">ตะกร้าของคุณว่างเปล่า</p>
-          <Link href="/stores"><Button className="bg-red-600 hover:bg-red-700">ไปเลือกซื้อสินค้า</Button></Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between bg-white p-4 rounded-lg shadow">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="font-semibold text-lg">{item.name}</p>
-                    <p className="text-gray-600">{item.price} บาท</p>
+    <div className="container mx-auto py-8">
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl">ตะกร้าสินค้าของคุณ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {items.length === 0 ? (
+            <p>ยังไม่มีสินค้าในตะกร้า</p>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between border-b pb-4">
+                  <div className="flex items-center gap-4">
+                    <Image
+                      src={item.image || `https://placehold.co/80x80/e2e8f0/64748b?text=${item.name.charAt(0)}`}
+                      alt={item.name}
+                      width={80}
+                      height={80}
+                      className="rounded-md object-cover"
+                    />
+                    <div>
+                      <h3 className="font-semibold">{item.name}</h3>
+                      <p className="text-muted-foreground">{item.price.toFixed(2)} บาท</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                        <MinusCircle className="h-5 w-5" />
+                      </Button>
+                      <span>{item.quantity}</span>
+                      <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                        <PlusCircle className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeFromCart(item.id)}>
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center border rounded-md">
-                    <Button variant="ghost" size="sm" onClick={() => decreaseQuantity(item.id)}>-</Button>
-                    <span className="px-4">{item.quantity}</span>
-                    <Button variant="ghost" size="sm" onClick={() => increaseQuantity(item.id)}>+</Button>
-                  </div>
-                  <Button variant="destructive" size="sm" onClick={() => removeItem(item.id)}>ลบ</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="lg:col-span-1">
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-xl font-semibold mb-4">สรุปรายการ</h2>
-              <div className="flex justify-between font-bold text-lg">
-                <span>ยอดสุทธิ:</span>
-                <span>{totalPrice} บาท</span>
-              </div>
-              <Button 
-                className="w-full mt-6 bg-green-600 hover:bg-green-700"
-                onClick={handleCreateOrder}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'กำลังส่งออเดอร์...' : 'ดำเนินการสั่งซื้อ'}
-              </Button>
-               <Button variant="outline" className="w-full mt-2" onClick={clearCart}>ล้างตะกร้า</Button>
+              ))}
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </CardContent>
+        {items.length > 0 && (
+          <CardFooter className="flex flex-col items-stretch gap-4 mt-4">
+             {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-md">{error}</p>}
+            <div className="flex justify-between text-xl font-bold">
+              <span>ยอดสุทธิ:</span>
+              <span>{total.toFixed(2)} บาท</span>
+            </div>
+            <Button onClick={handleCheckout} disabled={isLoading} size="lg">
+              {isLoading ? 'กำลังดำเนินการ...' : 'ดำเนินการต่อ'}
+            </Button>
+          </CardFooter>
+        )}
+      </Card>
     </div>
   );
-}
+};
+
+export default CartPage;

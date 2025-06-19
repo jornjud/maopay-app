@@ -1,82 +1,59 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { CartItem } from '@/store/cartStore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-// ฟังก์ชันสำหรับส่งข้อความไปที่ Telegram
-async function sendTelegramMessage(chatId: string, text: string) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token || !chatId) {
-        console.error("Telegram token or Chat ID is missing.");
-        return;
-    }
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
-    
-    try {
-        await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: text,
-                parse_mode: 'Markdown',
-            }),
-        });
-    } catch (error) {
-        console.error("Failed to send Telegram message:", error);
-    }
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  storeId: string;
 }
 
-// Handler สำหรับ POST request
 export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { items, totalPrice, storeId } = body;
+  try {
+    const { userId, items, total, storeId } = await request.json();
 
-        if (!items || items.length === 0 || !totalPrice || !storeId) {
-            return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
-        }
-
-        // 1. บันทึกออเดอร์ใหม่ลงใน collection 'orders'
-        const newOrderRef = await addDoc(collection(db, "orders"), {
-            storeId: storeId,
-            items: items,
-            totalPrice: totalPrice,
-            status: 'pending', // สถานะเริ่มต้น: รอร้านยืนยัน
-            createdAt: serverTimestamp(), // ประทับเวลาที่สร้าง
-        });
-
-        // 2. ดึงข้อมูลร้านค้าเพื่อหา Telegram Chat ID
-        const storeDocRef = doc(db, "stores", storeId);
-        const storeDocSnap = await getDoc(storeDocRef);
-        
-        if (!storeDocSnap.exists() || !storeDocSnap.data()?.telegram_chat_id) {
-             console.error(`Store ${storeId} not found or has no telegram_chat_id.`);
-             // แม้จะส่งแจ้งเตือนไม่ได้ แต่ก็ถือว่าสร้างออเดอร์สำเร็จ
-             return NextResponse.json({ message: 'สร้างออเดอร์สำเร็จ แต่ไม่สามารถส่งแจ้งเตือนได้', orderId: newOrderRef.id });
-        }
-        
-        const storeData = storeDocSnap.data();
-        const chatId = storeData.telegram_chat_id;
-
-        // 3. สร้างข้อความที่จะส่งไป Telegram
-        let message = `🔔 *ออเดอร์ใหม่เข้าแล้วจ้า!*\n\n`;
-        message += `*ร้าน:* ${storeData.name}\n`;
-        message += `*ID ออเดอร์:* \`${newOrderRef.id}\`\n\n`;
-        message += `*รายการอาหาร:*\n`;
-        items.forEach((item: CartItem) => {
-            message += `- ${item.name} (x${item.quantity}) = ${item.price * item.quantity} บาท\n`;
-        });
-        message += `\n*ยอดรวม:* *${totalPrice} บาท*\n\n`;
-        message += `👉 เข้าไปยืนยันออเดอร์ได้ที่แดชบอร์ดเลย!`;
-
-        // 4. ส่งข้อความ!
-        await sendTelegramMessage(chatId, message);
-
-        return NextResponse.json({ message: 'สร้างออเดอร์และส่งแจ้งเตือนสำเร็จ!', orderId: newOrderRef.id }, { status: 201 });
-
-    } catch (error) {
-        console.error("Error creating order:", error);
-        return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสร้างออเดอร์' }, { status: 500 });
+    // --- การตรวจสอบข้อมูลเบื้องต้น ---
+    if (!userId || !Array.isArray(items) || items.length === 0 || typeof total !== 'number' || !storeId) {
+      return new NextResponse(JSON.stringify({ message: 'ข้อมูลไม่ครบถ้วนหรือไม่ถูกต้อง' }), { status: 400 });
     }
+
+    // --- กรองและจัดระเบียบข้อมูลสินค้าก่อนบันทึก ---
+    // เพื่อป้องกันข้อมูลที่ไม่คาดคิดเล็ดลอดเข้าไปในฐานข้อมูล
+    const orderItems = items.map((item: CartItem) => ({
+      id: item.id || '',
+      name: item.name || 'สินค้าไม่มีชื่อ',
+      price: typeof item.price === 'number' ? item.price : 0,
+      quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
+      image: item.image || '', // บันทึก URL รูปภาพ (ถ้ามี)
+    }));
+
+    // --- ข้อมูลออเดอร์ที่จะบันทึก ---
+    const orderData = {
+      userId,
+      storeId,
+      items: orderItems,
+      total,
+      status: 'pending', // สถานะเริ่มต้นของออเดอร์
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    // --- บันทึกข้อมูลลง Firestore ---
+    const orderRef = await addDoc(collection(db, 'orders'), orderData);
+
+    // --- ส่งคำตอบกลับพร้อม Order ID ---
+    return NextResponse.json({
+      message: 'สร้างออเดอร์สำเร็จ',
+      orderId: orderRef.id,
+    });
+
+  } catch (error) {
+    console.error('Error creating order:', error);
+    // ส่งข้อความแสดงข้อผิดพลาดที่เป็นประโยชน์มากขึ้นสำหรับดีบัก
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return new NextResponse(JSON.stringify({ message: 'Internal Server Error', error: errorMessage }), { status: 500 });
+  }
 }
