@@ -10,7 +10,7 @@ interface OrderHistoryItem {
     id: string;
     totalPrice: number;
     status: string;
-    timestamp: Timestamp;
+    createdAt: Timestamp; // <-- ใช้ตัวนี้แทน
     items: { productName: string, quantity: number }[];
     storeName?: string;
 }
@@ -68,8 +68,8 @@ export default function OrderHistoryPage() {
                                 <div>
                                     <p className="font-semibold text-gray-800">Order #{order.id.substring(0, 7)}</p>
                                     <p className="text-sm text-gray-500">
-                                        {new Date(order.timestamp.seconds * 1000).toLocaleString()}
-                                    </p>
+										{order.createdAt && new Date(order.createdAt.seconds * 1000).toLocaleString()}
+									</p>
                                 </div>
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
                                     order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'

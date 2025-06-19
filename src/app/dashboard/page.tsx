@@ -158,19 +158,22 @@ export default function DashboardPage() {
     }
   };
 
-  const handleNotifyRiders = async (orderId: string) => {
-      if (!confirm("แน่ใจนะว่าจะแจ้งให้ไรเดอร์ไปรับ?")) return;
-      try {
-        await fetch('/api/orders/notify-riders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId }),
-        });
-      } catch (error) {
-        console.error(error);
-        alert("ส่งแจ้งเตือนล้มเหลว");
-      }
-  };
+  // ต้องแก้ให้มันรับ storeId เข้ามาด้วย!
+const handleNotifyRiders = async (orderId: string, storeId: string) => {
+    if (!confirm("แน่ใจนะว่าจะแจ้งให้ไรเดอร์ไปรับ?")) return;
+    try {
+      await fetch('/api/orders/notify-riders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // ส่ง storeId ไปด้วย!
+          body: JSON.stringify({ orderId, storeId }),
+      });
+      alert('แจ้งเตือนไรเดอร์แล้ว!');
+    } catch (error) {
+      console.error(error);
+      alert("ส่งแจ้งเตือนล้มเหลว");
+    }
+};
 
 
   // --- Render Logic ---
@@ -272,7 +275,7 @@ export default function DashboardPage() {
                            <p><strong>สถานะ:</strong> <span className="font-semibold">{order.status}</span></p>
                            <div className="flex gap-2 mt-3">
                                {order.status === 'pending' && <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(order.id, 'cooking')}>รับออเดอร์</Button>}
-                               {order.status === 'cooking' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleNotifyRiders(order.id)}>แจ้งไรเดอร์</Button>}
+                               {order.status === 'cooking' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleNotifyRiders(order.id, selectedStoreId)}>แจ้งไรเดอร์</Button>}
                                {order.status !== 'completed' && order.status !== 'cancelled' && <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(order.id, 'cancelled')}>ยกเลิก</Button>}
                            </div>
                         </Card>
