@@ -41,7 +41,7 @@ export default function OrderHistoryPage() {
                 id: doc.id,
                 ...doc.data()
             } as OrderHistoryItem));
-            setOrderHistory(history.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()));
+            setOrderHistory(history.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()));
         } catch (error) {
             console.error("Error fetching order history: ", error);
         } finally {
