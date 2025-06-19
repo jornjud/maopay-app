@@ -1,24 +1,36 @@
 // src/app/riders/register/page.tsx
-"use client"; // << ต้องอยู่บนสุดแบบนี้เลยนะ! #ClientComponent #NoMoreErrors
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider'; // << Import เข้ามาเช็ค User
+import { useRouter } from 'next/navigation'; // << Import เข้ามาสำหรับ redirect
 
-// Main App component for the rider registration page
 export default function App() {
+  const { user, loading: authLoading } = useAuth(); // ดึงข้อมูล user มาใช้
+  const router = useRouter(); // เตรียม router ไว้
+
   // State to hold form data for rider registration
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
     vehicleType: '',
     licensePlate: '',
-    bankAccountNumber: '',
+    // เราไม่ต้องการ email/password ที่นี่แล้ว เพราะ user ต้อง login มาก่อน
   });
 
-  // State for displaying messages to the user (e.g., success, error)
+  // State for displaying messages to the user and loading status
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [isLoading, setIsLoading] = useState(false);
+
+  // --- เพิ่มมาใหม่! ---
+  // เช็คว่า login หรือยัง ถ้ายังไม่ login หรือกำลังโหลดอยู่ ให้แสดงผลต่างกันไป
+  useEffect(() => {
+    if (!authLoading && !user) {
+      alert("เฮ้ยเพื่อน! ต้องล็อกอินก่อนนะถึงจะสมัครไรเดอร์ได้ 😜");
+      router.push('/login?redirect=/riders/register');
+    }
+  }, [user, authLoading, router]);
+  // --- จบส่วนเพิ่มใหม่ ---
 
   // Function to handle input changes and update form data state
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -29,44 +41,54 @@ export default function App() {
     }));
   };
 
-  // Function to handle form submission
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent default form submission behavior
-
-    // Basic validation: Check if passwords match
-    if (formData.password !== formData.confirmPassword) {
-      setMessage({ type: 'error', text: 'รหัสผ่านไม่ตรงกันนะเพื่อน! ลองอีกที!' }); // Passwords do not match
-      return;
+  // --- แก้ไข handleSubmit ใหม่ทั้งหมด! ---
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); 
+    if (!user) { // เช็คอีกรอบเพื่อความชัวร์
+        setMessage({ type: 'error', text: 'User is not authenticated.' });
+        return;
     }
 
-    // You would typically send this data to an API endpoint here
-    // For now, let's just log it to the console
-    console.log('ข้อมูลไรเดอร์ที่ลงทะเบียน:', formData);
+    setIsLoading(true);
+    setMessage({ type: '', text: '' });
 
-    // Simulate API call success
-    setMessage({ type: 'success', text: 'ลงทะเบียนไรเดอร์เรียบร้อยแล้วจ้า! 🎉 เตรียมตัวซิ่งได้เลย!' }); // Successful registration message
+    try {
+        const response = await fetch('/api/riders/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: user.uid,
+                name: formData.fullName,
+                phone: formData.phone,
+                vehicleDetails: { // ส่งเป็น object ไปเลย เท่ๆ
+                    type: formData.vehicleType,
+                    licensePlate: formData.licensePlate,
+                }
+            })
+        });
 
-    // Clear form after successful submission
-    setFormData({
-      fullName: '',
-      phone: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      vehicleType: '',
-      licensePlate: '',
-      bankAccountNumber: '',
-    });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'มีบางอย่างผิดพลาดว่ะเพื่อน');
+        }
+
+        setMessage({ type: 'success', text: 'ลงทะเบียนสำเร็จแล้ว! 🎉 เดี๋ยวแอดมินจะรีบตรวจสอบให้นะ!' });
+        router.push('/dashboard'); // สมัครเสร็จ พาไปแดชบอร์ดเลย
+
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดที่ไม่รู้จัก';
+        setMessage({ type: 'error', text: errorMessage });
+    } finally {
+        setIsLoading(false);
+    }
   };
+  
+  if (authLoading || !user) {
+    return <div className="min-h-screen flex items-center justify-center">กำลังเช็คข้อมูลแป๊ป...</div>
+  }
 
-  // Function to navigate back to the home page (placeholder)
-  const goToHome = (): void => {
-    // In a real Next.js app, you'd use useRouter().push('/') here.
-    // For this standalone component, we'll just log.
-    console.log('กลับหน้าหลัก');
-    alert('กลับหน้าหลักนะเพื่อน! 👋'); // Using alert for demo purposes, replace with proper UI notification
-  };
-
+  // --- ส่วน JSX ปรับแก้เล็กน้อย ---
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 sm:p-6">
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-md">
@@ -77,7 +99,6 @@ export default function App() {
           มาซิ่งส่งความอร่อยไปกับเราสิ!
         </p>
 
-        {/* Display messages to the user */}
         {message.text && (
           <div
             className={`p-3 rounded-lg text-center mb-4 text-sm font-medium ${
@@ -90,7 +111,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Rider Registration Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
@@ -103,6 +123,7 @@ export default function App() {
               value={formData.fullName}
               onChange={handleChange}
               required
+              disabled={isLoading}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
               placeholder="ชื่อเต็มของคุณ"
             />
@@ -119,56 +140,9 @@ export default function App() {
               value={formData.phone}
               onChange={handleChange}
               required
+              disabled={isLoading}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
               placeholder="08X-XXX-XXXX"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              อีเมล: <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-              placeholder="email@example.com"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              รหัสผ่าน: <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-              placeholder="ตั้งรหัสผ่านสุดลับ"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              ยืนยันรหัสผ่าน: <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-              placeholder="ยืนยันอีกครั้ง"
             />
           </div>
 
@@ -182,11 +156,11 @@ export default function App() {
               value={formData.vehicleType}
               onChange={handleChange}
               required
+              disabled={isLoading}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
             >
               <option value="">เลือกประเภทพาหนะ</option>
               <option value="motorcycle">มอเตอร์ไซค์ 🏍️</option>
-              <option value="bicycle">จักรยาน 🚴</option>
               <option value="car">รถยนต์ 🚗</option>
             </select>
           </div>
@@ -202,45 +176,20 @@ export default function App() {
               value={formData.licensePlate}
               onChange={handleChange}
               required
+              disabled={isLoading}
               className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
               placeholder="กข 1234 หรือ 1กข 1234"
             />
           </div>
 
-          <div>
-            <label htmlFor="bankAccountNumber" className="block text-sm font-medium text-gray-700 mb-1">
-              เลขที่บัญชีธนาคาร: <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="bankAccountNumber"
-              name="bankAccountNumber"
-              value={formData.bankAccountNumber}
-              onChange={handleChange}
-              required
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-              placeholder="เลขที่บัญชีรับเงิน"
-            />
-          </div>
-
-          {/* Submit button */}
           <button
             type="submit"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"
+            disabled={isLoading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out disabled:bg-gray-400"
           >
-            ลงทะเบียนไรเดอร์ 💨
+            {isLoading ? 'กำลังส่งข้อมูล...' : 'ลงทะเบียนไรเดอร์ 💨'}
           </button>
         </form>
-
-        {/* Back to home button */}
-        <div className="mt-6 text-center">
-          <button
-            onClick={goToHome}
-            className="text-green-600 hover:text-green-800 text-sm font-medium"
-          >
-            หรือจะกลับหน้าหลักก่อนดี?
-          </button>
-        </div>
       </div>
     </div>
   );
