@@ -1,9 +1,6 @@
-// ที่ไฟล์: src/app/cart/page.tsx หรือ page.tsx ที่นายส่งมา
-
 "use client";
 
 import { useState } from 'react';
-// 1. ลบ CartItem ออกจากการ import เพราะไม่ได้ใช้แล้ว
 import { useCartStore } from '@/store/cartStore'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -87,7 +84,6 @@ const CartPage = () => {
               {items.map((item) => (
                 <div key={item.id} className="flex items-center justify-between border-b pb-4">
                   <div className="flex items-center gap-4">
-                    {/* 2. เอา (item as any) ออกได้เลย! */}
                     <Image
                       src={item.image || `https://placehold.co/80x80/e2e8f0/64748b?text=${item.name ? item.name.charAt(0) : '?'}`}
                       alt={item.name || 'สินค้า'}
@@ -121,7 +117,7 @@ const CartPage = () => {
         </CardContent>
         {items.length > 0 && (
           <CardFooter className="flex flex-col items-stretch gap-4 mt-4">
-             {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-md">{error}</p>}
+            {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-md">{error}</p>}
             <div className="flex justify-between text-xl font-bold">
               <span>ยอดสุทธิ:</span>
               <span>{total.toFixed(2)} บาท</span>
