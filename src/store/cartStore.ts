@@ -1,3 +1,5 @@
+// ที่ไฟล์: src/store/cartStore.ts
+
 import { create } from 'zustand';
 
 export interface CartItem {
@@ -5,12 +7,13 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  image?: string; // << เพิ่มบรรทัดนี้เข้าไป! ให้มันเป็น optional
 }
 
 interface CartState {
   items: CartItem[];
-  storeId: string | null; // << เพิ่มเข้ามา! สำหรับเก็บ ID ร้านค้า
-  addItem: (item: Omit<CartItem, 'quantity'>, storeId: string) => void; // << แก้ไข! ต้องรับ storeId ด้วย
+  storeId: string | null;
+  addItem: (item: Omit<CartItem, 'quantity' | 'image'> & { image?: string }, storeId: string) => void; // แก้ไข type ของ item ที่รับเข้ามา
   removeItem: (itemId: string) => void;
   increaseQuantity: (itemId: string) => void;
   decreaseQuantity: (itemId: string) => void;
@@ -19,17 +22,15 @@ interface CartState {
 
 export const useCartStore = create<CartState>((set) => ({
   items: [],
-  storeId: null, // << เริ่มต้นยังไม่มีร้าน
+  storeId: null,
 
-  // --- ACTIONS (ฟังก์ชันสำหรับจัดการตะกร้า) ---
+  // --- ACTIONS ---
 
   addItem: (item, newStoreId) =>
     set((state) => {
-      // ตรวจสอบว่ากำลังสั่งของจากร้านใหม่หรือไม่
       if (state.storeId && state.storeId !== newStoreId) {
-        // ถ้ามาจากร้านใหม่ ให้ล้างตะกร้าเก่าก่อน
         alert("คุณกำลังสั่งอาหารจากร้านใหม่ ตะกร้าเก่าของคุณจะถูกล้าง");
-        state.items = []; 
+        return { items: [{ ...item, quantity: 1 }], storeId: newStoreId }; // ล้างตะกร้าแล้วเริ่มใหม่
       }
 
       const existingItem = state.items.find((i) => i.id === item.id);
@@ -43,9 +44,10 @@ export const useCartStore = create<CartState>((set) => ({
         updatedItems = [...state.items, { ...item, quantity: 1 }];
       }
 
-      return { items: updatedItems, storeId: newStoreId }; // << อัปเดต storeId ด้วย
+      return { items: updatedItems, storeId: newStoreId }; 
     }),
 
+  // ... ฟังก์ชันอื่นๆ เหมือนเดิม ...
   removeItem: (itemId) =>
     set((state) => ({
       items: state.items.filter((i) => i.id !== itemId),
@@ -67,5 +69,5 @@ export const useCartStore = create<CartState>((set) => ({
         .filter((i) => i.quantity > 0),
     })),
 
-  clearCart: () => set({ items: [], storeId: null }), // << ล้าง storeId ด้วย
+  clearCart: () => set({ items: [], storeId: null }),
 }));
