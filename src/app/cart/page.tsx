@@ -10,6 +10,8 @@ import Image from 'next/image';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const CartPage = () => {
@@ -18,6 +20,7 @@ const CartPage = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
@@ -29,6 +32,11 @@ const CartPage = () => {
 
     if (items.length === 0) {
         setError("ตะกร้าของมึงว่างเปล่าเว้ยเพื่อน!");
+        return;
+    }
+
+	if (!deliveryAddress.trim()) {
+        setError("เฮ้ยเพื่อน! ลืมใส่ที่อยู่จัดส่งรึเปล่า?");
         return;
     }
 
@@ -58,8 +66,9 @@ const CartPage = () => {
             status: 'pending', // สถานะเริ่มต้น
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-            // เพิ่มที่อยู่จัดส่ง ถ้ามี
-            // deliveryAddress: { address: 'บ้านกูเอง 123/45' } 
+            deliveryAddress: {
+                address: deliveryAddress
+            } 
         };
 
         // --- ยิงตรงไป Firestore เลยเพื่อน! ---
@@ -128,6 +137,15 @@ const CartPage = () => {
         {items.length > 0 && (
           <CardFooter className="flex flex-col items-stretch gap-4 mt-4">
             {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-md">{error}</p>}
+			<div className="grid w-full gap-1.5">
+        <Label htmlFor="address">ที่อยู่สำหรับจัดส่ง</Label>
+        <Textarea 
+            placeholder="บอกที่อยู่มาให้ละเอียดเลยเพื่อน..." 
+            id="address"
+            value={deliveryAddress}
+            onChange={(e) => setDeliveryAddress(e.target.value)}
+        />
+			</div>
             <div className="flex justify-between text-xl font-bold">
               <span>ยอดสุทธิ:</span>
               <span>{total.toFixed(2)} บาท</span>
