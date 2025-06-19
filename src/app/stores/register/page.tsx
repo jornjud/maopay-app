@@ -1,71 +1,90 @@
 "use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useRouter } from 'next/navigation';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // << เพิ่ม import Select
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useRouter } from "next/navigation";
 
 export default function RegisterStorePage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [storeName, setStoreName] = useState('');
-  const [description, setDescription] = useState('');
-  const [address, setAddress] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [storeName, setStoreName] = useState("");
+  const [description, setDescription] = useState("");
+  const [address, setAddress] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [storeType, setStoreType] = useState(""); // << เพิ่ม State สำหรับประเภทของร้าน
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
       setError("กรุณาเข้าสู่ระบบก่อนทำการสมัครร้านค้า");
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
-    if (!storeName || !description || !address || !phoneNumber) {
-      setError("กรุณากรอกข้อมูลให้ครบถ้วน");
+    // << เพิ่ม storeType ในการเช็คข้อมูล
+    if (!storeName || !description || !address || !phoneNumber || !storeType) {
+      setError("กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง");
       return;
     }
 
     setIsLoading(true);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     try {
-      const response = await fetch('/api/stores/register', {
-        method: 'POST',
+      const response = await fetch("/api/stores/register", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
+        // --- 👇👇 แก้ไขข้อมูลที่ส่งไปให้ตรงกับที่ API ต้องการ! 👇👇 ---
         body: JSON.stringify({
           ownerId: user.uid,
           name: storeName,
           description,
-          address,
-          phoneNumber,
+          type: storeType, // << ส่ง type ไปด้วย
+          location: {
+            // << ส่ง location เป็น object
+            address: address,
+            phone: phoneNumber,
+          },
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'เกิดข้อผิดพลาดในการสมัคร');
+        throw new Error(data.error || "เกิดข้อผิดพลาดในการสมัคร");
       }
-      
-      setSuccess('สมัครร้านค้าสำเร็จ! เราจะนำคุณไปยังแดชบอร์ดร้านค้า');
-      setTimeout(() => {
-        router.push('/dashboard/store');
-      }, 2000);
 
-
+      setSuccess("สมัครร้านค้าสำเร็จ! เราจะนำคุณไปยังแดชบอร์ดร้านค้า");
+      // setTimeout(() => {
+      //   router.push('/dashboard/store');
+      // }, 2000);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบ';
+      const errorMessage =
+        error instanceof Error ? error.message : "เกิดข้อผิดพลาดที่ไม่ทราบ";
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -99,6 +118,26 @@ export default function RegisterStorePage() {
                   onChange={(e) => setStoreName(e.target.value)}
                 />
               </div>
+
+              {/* --- 👇👇 เพิ่มช่องให้เลือกประเภทของร้าน! 👇👇 --- */}
+              <div className="grid gap-2">
+                <Label htmlFor="store-type">ประเภทร้านค้า</Label>
+                <Select
+                  required
+                  onValueChange={(value) => setStoreType(value)}
+                  value={storeType}
+                >
+                  <SelectTrigger id="store-type">
+                    <SelectValue placeholder="-- เลือกประเภทร้านค้า --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="restaurant">ร้านอาหาร</SelectItem>
+                    <SelectItem value="cafe">คาเฟ่</SelectItem>
+                    <SelectItem value="street_food">สตรีทฟู้ด</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="description">คำอธิบายร้านค้า</Label>
                 <Textarea
@@ -111,9 +150,8 @@ export default function RegisterStorePage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="address">ที่อยู่</Label>
-                <Input
+                <Textarea
                   id="address"
-                  type="text"
                   placeholder="บ้านเลขที่, ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์"
                   required
                   value={address}
@@ -133,7 +171,7 @@ export default function RegisterStorePage() {
               </div>
               {error && <p className="text-red-500 text-sm">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'กำลังดำเนินการ...' : 'สมัครร้านค้า'}
+                {isLoading ? "กำลังดำเนินการ..." : "สมัครร้านค้า"}
               </Button>
             </form>
           )}
