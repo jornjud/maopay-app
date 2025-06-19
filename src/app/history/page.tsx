@@ -2,16 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../../lib/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore'; // เพิ่ม orderBy
 import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
+// 🔥 แก้ Interface ให้ถูกต้อง
 interface OrderHistoryItem {
     id: string;
     totalPrice: number;
     status: string;
-    createdAt: Timestamp; // <-- ใช้ตัวนี้แทน
-    items: { productName: string, quantity: number }[];
+    createdAt: Timestamp; // <--- ใช้ createdAt
+    items: { productName?: string, name?: string, quantity: number }[]; // ทำให้ยืดหยุ่นขึ้น
     storeName?: string;
 }
 
@@ -35,13 +36,15 @@ export default function OrderHistoryPage() {
     const fetchOrderHistory = async (userId: string) => {
         setLoading(true);
         try {
-            const q = query(collection(db, "orders"), where("userId", "==", userId));
+            // 🔥 เพิ่ม orderBy เข้าไปใน query
+            const q = query(collection(db, "orders"), where("userId", "==", userId), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
             const history = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             } as OrderHistoryItem));
-            setOrderHistory(history.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()));
+            // 🔥 ไม่ต้อง sort ที่ client แล้ว เพราะ query มาให้แล้ว
+            setOrderHistory(history);
         } catch (error) {
             console.error("Error fetching order history: ", error);
         } finally {
@@ -68,8 +71,9 @@ export default function OrderHistoryPage() {
                                 <div>
                                     <p className="font-semibold text-gray-800">Order #{order.id.substring(0, 7)}</p>
                                     <p className="text-sm text-gray-500">
-										{order.createdAt && new Date(order.createdAt.seconds * 1000).toLocaleString()}
-									</p>
+                                        {/* 🔥 เช็คก่อนใช้ และใช้ createdAt */}
+                                        {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString() : 'ไม่มีข้อมูลเวลา'}
+                                    </p>
                                 </div>
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
                                     order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -79,9 +83,10 @@ export default function OrderHistoryPage() {
                             </div>
                             <div className="mt-4 border-t pt-4">
                                <ul className="space-y-1">
-                                   {order.items.map((item, index) => (
+                                   {/* 🔥 ทำให้รองรับทั้ง productName และ name */}
+                                   {(order.items || []).map((item, index) => (
                                        <li key={index} className="text-sm text-gray-600 flex justify-between">
-                                           <span>{item.productName}</span>
+                                           <span>{item.productName || item.name}</span>
                                            <span>x{item.quantity}</span>
                                        </li>
                                    ))}
