@@ -21,7 +21,7 @@ export default function App() {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Function to handle input changes and update form data state
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
       ...prevData,
@@ -30,7 +30,7 @@ export default function App() {
   };
 
   // Function to handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevent default form submission behavior
 
     // Basic validation: Check if passwords match
@@ -60,7 +60,7 @@ export default function App() {
   };
 
   // Function to navigate back to the home page (placeholder)
-  const goToHome = () => {
+  const goToHome = (): void => {
     // In a real Next.js app, you'd use useRouter().push('/') here.
     // For this standalone component, we'll just log.
     console.log('กลับหน้าหลัก');
@@ -218,7 +218,7 @@ export default function App() {
               value={formData.bankAccountNumber}
               onChange={handleChange}
               required
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
               placeholder="เลขที่บัญชีรับเงิน"
             />
           </div>
