@@ -1,3 +1,4 @@
+// @filename: src/app/history/page.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +17,6 @@ interface OrderHistoryItem {
 }
 
 export default function OrderHistoryPage() {
-    const [user, setUser] = useState<User | null>(null);
     const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
@@ -24,18 +24,17 @@ export default function OrderHistoryPage() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
-                setUser(currentUser);
                 fetchOrderHistory(currentUser.uid);
             } else {
                 router.push('/login');
             }
-            setLoading(false);
         });
 
         return () => unsubscribe();
     }, [router]);
 
     const fetchOrderHistory = async (userId: string) => {
+        setLoading(true);
         try {
             const q = query(collection(db, "orders"), where("userId", "==", userId));
             const querySnapshot = await getDocs(q);
@@ -46,6 +45,8 @@ export default function OrderHistoryPage() {
             setOrderHistory(history.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()));
         } catch (error) {
             console.error("Error fetching order history: ", error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -62,26 +63,7 @@ export default function OrderHistoryPage() {
                 <div className="space-y-4">
                     {orderHistory.map(order => (
                         <div key={order.id} className="bg-white shadow rounded-lg p-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-semibold">Order #{order.id.substring(0, 7)}</p>
-                                    <p className="text-sm text-gray-500">
-                                        {new Date(order.timestamp.seconds * 1000).toLocaleString()}
-                                    </p>
-                                </div>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                    order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                    {order.status}
-                                </span>
-                            </div>
-                            <div className="mt-4">
-                               <ul>
-                                   {order.items.map((item, index) => (
-                                       <li key={index} className="text-sm text-gray-600">{item.productName} x {item.quantity}</li>
-                                   ))}
-                               </ul>
-                            </div>
+                            <p className="font-semibold">Order #{order.id.substring(0, 7)}</p>
                              <p className="text-right font-bold mt-4">Total: {order.totalPrice.toFixed(2)} THB</p>
                         </div>
                     ))}

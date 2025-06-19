@@ -1,3 +1,4 @@
+// @filename: src/app/dashboard/admin/page.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +12,6 @@ interface StoreApplication {
     name: string;
     ownerId: string;
     status: 'pending' | 'approved' | 'rejected';
-    // Add other relevant fields from the store registration
 }
 
 interface RiderApplication {
@@ -19,11 +19,9 @@ interface RiderApplication {
     name: string;
     userId: string;
     status: 'pending' | 'approved' | 'rejected';
-    // Add other relevant fields from the rider registration
 }
 
 export default function AdminDashboardPage() {
-    const [user, setUser] = useState<User | null>(null);
     const [userRole, setUserRole] = useState<string | null>(null);
     const [storeApps, setStoreApps] = useState<StoreApplication[]>([]);
     const [riderApps, setRiderApps] = useState<RiderApplication[]>([]);
@@ -32,7 +30,6 @@ export default function AdminDashboardPage() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                setUser(currentUser);
                 const userDocRef = doc(db, 'users', currentUser.uid);
                 const userDoc = await getDoc(userDocRef);
                 if (userDoc.exists() && userDoc.data().role === 'admin') {
@@ -41,7 +38,6 @@ export default function AdminDashboardPage() {
                     setUserRole('user'); // Or whatever the default role is
                 }
             } else {
-                setUser(null);
                 setUserRole(null);
             }
             setLoading(false);
@@ -113,30 +109,30 @@ export default function AdminDashboardPage() {
             <section>
                 <h2 className="text-xl font-semibold mb-2">Pending Store Applications ({storeApps.length})</h2>
                 <div className="space-y-2">
-                    {storeApps.map(app => (
+                    {storeApps.length > 0 ? storeApps.map(app => (
                         <div key={app.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
-                            <span>{app.name}</span>
+                            <span>{app.name || 'N/A'}</span>
                             <div>
                                 <button onClick={() => handleApprove('store', app.id, app.ownerId)} className="bg-green-500 text-white px-2 py-1 rounded mr-2">Approve</button>
                                 <button onClick={() => handleReject('store', app.id)} className="bg-red-500 text-white px-2 py-1 rounded">Reject</button>
                             </div>
                         </div>
-                    ))}
+                    )) : <p>No pending store applications.</p>}
                 </div>
             </section>
 
             <section className="mt-8">
                 <h2 className="text-xl font-semibold mb-2">Pending Rider Applications ({riderApps.length})</h2>
                  <div className="space-y-2">
-                    {riderApps.map(app => (
+                    {riderApps.length > 0 ? riderApps.map(app => (
                         <div key={app.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
-                            <span>{app.name}</span>
+                            <span>{app.name || 'N/A'}</span>
                             <div>
                                 <button onClick={() => handleApprove('rider', app.id, app.userId)} className="bg-green-500 text-white px-2 py-1 rounded mr-2">Approve</button>
                                 <button onClick={() => handleReject('rider', app.id)} className="bg-red-500 text-white px-2 py-1 rounded">Reject</button>
                             </div>
                         </div>
-                    ))}
+                    )) : <p>No pending rider applications.</p>}
                 </div>
             </section>
         </div>
