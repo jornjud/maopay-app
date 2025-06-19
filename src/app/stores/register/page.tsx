@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import {
   Card,
   CardContent,
@@ -35,61 +37,61 @@ export default function RegisterStorePage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      setError("กรุณาเข้าสู่ระบบก่อนทำการสมัครร้านค้า");
-      router.push("/login");
-      return;
-    }
+  e.preventDefault();
+  if (!user) {
+    setError("เฮ้ยเพื่อน! ต้องล็อกอินก่อนนะถึงจะสมัครได้ 😜");
+    router.push("/login?redirect=/stores/register");
+    return;
+  }
 
-    // << เพิ่ม storeType ในการเช็คข้อมูล
-    if (!storeName || !description || !address || !phoneNumber || !storeType) {
-      setError("กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง");
-      return;
-    }
+  if (!storeName || !description || !address || !phoneNumber || !storeType) {
+    setError("กรุณากรอกข้อมูลให้ครบถ้วนทุกช่องนะเพื่อน");
+    return;
+  }
 
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
+  setIsLoading(true);
+  setError("");
+  setSuccess("");
 
-    try {
-      const response = await fetch("/api/stores/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // --- 👇👇 แก้ไขข้อมูลที่ส่งไปให้ตรงกับที่ API ต้องการ! 👇👇 ---
-        body: JSON.stringify({
-          ownerId: user.uid,
-          name: storeName,
-          description,
-          type: storeType, // << ส่ง type ไปด้วย
-          location: {
-            // << ส่ง location เป็น object
-            address: address,
-            phone: phoneNumber,
-          },
-        }),
-      });
+  try {
+    // --- นี่ไง! ยิงตรงไป Firestore เลย ไม่ต้อง fetch แล้ว ---
+    await addDoc(collection(db, "stores"), {
+      ownerId: user.uid,
+      name: storeName,
+      description,
+      type: storeType,
+      location: {
+        address: address,
+        phone: phoneNumber,
+      },
+      // สร้าง URL รูปภาพชั่วคราวไปก่อน
+      imageUrl: `https://placehold.co/600x400/orange/white?text=${encodeURIComponent(storeName)}`,
+      status: 'pending', // สถานะเริ่มต้น รอแอดมินอนุมัติ
+      createdAt: serverTimestamp(), // ใช้เวลาของเซิร์ฟเวอร์
+    });
 
-      const data = await response.json();
+    setSuccess("สมัครร้านค้าสำเร็จแล้วโว้ย! เดี๋ยวแอดมินจัดการต่อให้ รอแป๊ป! 🥳");
+    // เคลียร์ฟอร์มซะหน่อย
+    setStoreName("");
+    setDescription("");
+    setAddress("");
+    setPhoneNumber("");
+    setStoreType("");
 
-      if (!response.ok) {
-        throw new Error(data.error || "เกิดข้อผิดพลาดในการสมัคร");
-      }
+    // พาไปหน้าแดชบอร์ดเลยก็ได้ เท่ๆ
+    // setTimeout(() => {
+    //   router.push('/dashboard');
+    // }, 2000);
 
-      setSuccess("สมัครร้านค้าสำเร็จ! เราจะนำคุณไปยังแดชบอร์ดร้านค้า");
-      // setTimeout(() => {
-      //   router.push('/dashboard/store');
-      // }, 2000);
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "เกิดข้อผิดพลาดที่ไม่ทราบ";
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "เกิดข้อผิดพลาดแบบไม่รู้อ่ะเพื่อน";
+    console.error("Firestore Error:", error);
+    setError(`โอ๊ย! บันทึกไม่ผ่านว่ะเพื่อน: ${errorMessage}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="container mx-auto flex items-center justify-center py-12">

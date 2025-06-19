@@ -4,6 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider'; // << Import เข้ามาเช็ค User
 import { useRouter } from 'next/navigation'; // << Import เข้ามาสำหรับ redirect
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function App() {
   const { user, loading: authLoading } = useAuth(); // ดึงข้อมูล user มาใช้
@@ -42,47 +44,45 @@ export default function App() {
   };
 
   // --- แก้ไข handleSubmit ใหม่ทั้งหมด! ---
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); 
-    if (!user) { // เช็คอีกรอบเพื่อความชัวร์
-        setMessage({ type: 'error', text: 'User is not authenticated.' });
-        return;
-    }
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault(); 
+  if (!user) {
+      setMessage({ type: 'error', text: 'User is not authenticated.' });
+      return;
+  }
 
-    setIsLoading(true);
-    setMessage({ type: '', text: '' });
+  setIsLoading(true);
+  setMessage({ type: '', text: '' });
 
-    try {
-        const response = await fetch('/api/riders/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId: user.uid,
-                name: formData.fullName,
-                phone: formData.phone,
-                vehicleDetails: { // ส่งเป็น object ไปเลย เท่ๆ
-                    type: formData.vehicleType,
-                    licensePlate: formData.licensePlate,
-                }
-            })
-        });
+  try {
+      // --- นี่ไง! ยิงตรงไปที่ Firestore เลย ไม่ต้อง fetch แล้ว ---
+      // เราจะใช้ user.uid เป็น ID ของเอกสารใน collection 'riders' เลย
+      const riderRef = doc(db, "riders", user.uid);
 
-        const data = await response.json();
+      await setDoc(riderRef, {
+          userId: user.uid,
+          name: formData.fullName,
+          phone: formData.phone,
+          vehicleDetails: {
+              type: formData.vehicleType,
+              licensePlate: formData.licensePlate,
+          },
+          status: 'pending', // สถานะเริ่มต้น รอแอดมินอนุมัติ
+          createdAt: new Date(),
+      });
 
-        if (!response.ok) {
-            throw new Error(data.error || 'มีบางอย่างผิดพลาดว่ะเพื่อน');
-        }
+      setMessage({ type: 'success', text: 'ลงทะเบียนสำเร็จแล้ว! 🎉 เดี๋ยวแอดมินจะรีบตรวจสอบให้นะ!' });
+      // พาไปแดชบอร์ดเลย เท่ๆ
+      router.push('/dashboard'); 
 
-        setMessage({ type: 'success', text: 'ลงทะเบียนสำเร็จแล้ว! 🎉 เดี๋ยวแอดมินจะรีบตรวจสอบให้นะ!' });
-        router.push('/dashboard'); // สมัครเสร็จ พาไปแดชบอร์ดเลย
-
-    } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดที่ไม่รู้จัก';
-        setMessage({ type: 'error', text: errorMessage });
-    } finally {
-        setIsLoading(false);
-    }
-  };
+  } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดที่ไม่รู้จัก';
+      console.error("Firestore Error:", err);
+      setMessage({ type: 'error', text: `โอ๊ย! บันทึกไม่ผ่านว่ะเพื่อน: ${errorMessage}` });
+  } finally {
+      setIsLoading(false);
+  }
+};
   
   if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center">กำลังเช็คข้อมูลแป๊ป...</div>
