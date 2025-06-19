@@ -1,74 +1,121 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '../../../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
-async function sendTelegramMessage(chatId: string, text: string) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token || !chatId) {
-        console.error("Telegram token or Chat ID is missing.");
-        return;
-    }
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
-    
-    try {
-        await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: text,
-                parse_mode: 'Markdown',
-            }),
-        });
-    } catch (error) {
-        console.error("Failed to send Telegram message:", error);
-    }
+interface NotifyRidersRequest {
+  orderId: string;
+  storeId: string;
 }
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { orderId } = body;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
-        if (!orderId) {
-            return NextResponse.json({ error: 'ไม่พบ ID ออเดอร์' }, { status: 400 });
-        }
+/**
+ * Sends a notification message to a Telegram chat with an inline button.
+ * @param chatId The target Telegram chat ID.
+ * @param text The message content.
+ * @param orderId The ID of the order to create a direct link.
+ */
+async function sendTelegramNotification(chatId: string, text: string, orderId: string) {
+  const url = `${BASE_URL}/sendMessage`;
+  // Use an environment variable for the app's base URL for flexibility.
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://maopay-app.vercel.app';
+  const orderUrl = `${appBaseUrl}/dashboard/rider?orderId=${orderId}`;
 
-        const orderDocRef = doc(db, "orders", orderId);
-        const orderDocSnap = await getDoc(orderDocRef);
-
-        if (!orderDocSnap.exists()) {
-            return NextResponse.json({ error: 'ไม่พบออเดอร์นี้ในระบบ' }, { status: 404 });
-        }
-        const orderData = orderDocSnap.data();
-        const storeId = orderData.storeId;
-
-        const storeDocRef = doc(db, "stores", storeId);
-        const storeDocSnap = await getDoc(storeDocRef);
-        const storeName = storeDocSnap.exists() ? storeDocSnap.data().name : 'ไม่พบชื่อร้าน';
-        
-        const riderChatId = process.env.TELEGRAM_RIDER_GROUP_CHAT_ID;
-        if (!riderChatId) {
-            throw new Error("ไม่ได้ตั้งค่า TELEGRAM_RIDER_GROUP_CHAT_ID");
-        }
-
-        let message = `🛵💨 *มีงานใหม่เข้า!* 🛵💨\n\n`;
-        message += `*ร้าน:* ${storeName}\n`;
-        message += `*ยอดรวม:* ${orderData.totalPrice} บาท\n`;
-        message += `*สถานะ:* รอลั่น!\n\n`;
-        message += `ใครใกล้ กดรับงานได้เลย!`;
-        
-        await sendTelegramMessage(riderChatId, message);
-        
-        await updateDoc(orderDocRef, {
-            status: 'notifying_riders'
-        });
-
-        return NextResponse.json({ message: 'ส่งแจ้งเตือนให้ไรเดอร์เรียบร้อย!' }, { status: 200 });
-
-    } catch (error: unknown) { // << แก้ไข: เปลี่ยนจาก any เป็น unknown
-        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาด';
-        console.error("Error notifying riders:", error);
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+  const body = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: 'Markdown', // Using Markdown for text formatting
+    reply_markup: {
+      inline_keyboard: [
+        [
+          // This button will link directly to the rider dashboard with the order details pre-loaded.
+          { text: '🛵 กดดูรายละเอียดและรับงาน', url: orderUrl }
+        ]
+      ]
     }
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('Failed to send Telegram message:', data.description);
+    }
+  } catch (error) {
+    console.error('Error sending Telegram message:', error);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN is not set in environment variables.');
+    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+  }
+
+  try {
+    const { orderId, storeId }: NotifyRidersRequest = await req.json();
+
+    if (!orderId || !storeId) {
+      return NextResponse.json({ error: 'Missing orderId or storeId' }, { status: 400 });
+    }
+
+    // 1. Fetch store details to get the Telegram Group ID and location
+    const storeRef = doc(db, 'stores', storeId);
+    const storeSnap = await getDoc(storeRef);
+
+    if (!storeSnap.exists()) {
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    }
+    const storeData = storeSnap.data();
+    const chatId = storeData.telegramGroupId;
+
+    if (!chatId) {
+      console.log(`Store ${storeId} does not have a Telegram Group ID configured.`);
+      return NextResponse.json({ message: 'No Telegram Group ID for this store.' });
+    }
+
+    // 2. Fetch order details to create a meaningful message
+    const orderRef = doc(db, 'orders', orderId);
+    const orderSnap = await getDoc(orderRef);
+
+    if (!orderSnap.exists()) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+    const orderData = orderSnap.data();
+    const storeLocation = storeData.location?.address || 'ไม่ระบุ';
+
+    // 3. Create a more detailed and readable notification message
+    const itemsSummary = orderData.items.map((item: { productName: string; quantity: number; }) => `  - ${item.productName} (x${item.quantity})`).join('\n');
+    const message = `
+🚨 *มีออเดอร์ใหม่เข้าจ้า!* 🚨
+
+*จากร้าน:* ${storeData.name}
+*พิกัดร้าน:* ${storeLocation}
+
+*รายการอาหาร:*
+${itemsSummary}
+
+*ราคารวม:* ${orderData.totalPrice.toFixed(2)} บาท
+
+*ที่อยู่จัดส่ง:*
+${orderData.deliveryAddress.address}
+    `;
+
+    // 4. Send the notification with the direct link button
+    await sendTelegramNotification(chatId, message, orderId);
+
+    return NextResponse.json({ message: 'Notification sent successfully to riders.' });
+
+  } catch (error) {
+    console.error('Error in notify-riders endpoint:', error);
+    if (error instanceof Error) {
+        return NextResponse.json({ error: `Internal Server Error: ${error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }
