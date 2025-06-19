@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { useCartStore } from '@/store/cartStore';
+// 1. แก้ไขการ import: เอาฟังก์ชันที่ถูกต้องจาก store มาใช้
+import { useCartStore, CartItem } from '@/store/cartStore'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import Image from 'next/image';
@@ -10,12 +11,14 @@ import { useRouter } from 'next/navigation';
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
 
 const CartPage = () => {
-  const { items, removeFromCart, updateQuantity, clearCart } = useCartStore();
+  // 2. เปลี่ยนชื่อฟังก์ชันที่ดึงมาจาก store ให้ถูกต้อง
+  const { items, removeItem, increaseQuantity, decreaseQuantity, clearCart } = useCartStore();
   const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // คำนวณราคารวม (ส่วนนี้ถูกต้องอยู่แล้ว)
   const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   const handleCheckout = async () => {
@@ -29,7 +32,9 @@ const CartPage = () => {
       return;
     }
     
-    const storeId = items.length > 0 ? items[0].storeId : null;
+    // 3. แก้ไขการดึง storeId จาก item ในตะกร้า
+    // เนื่องจากตอนนี้ storeId อยู่ใน state หลักของ cartStore แล้ว
+    const storeId = useCartStore.getState().storeId;
 
     if (!storeId) {
       setError("ไม่สามารถดำเนินการต่อได้: ไม่พบข้อมูลร้านค้าในตะกร้า");
@@ -61,8 +66,6 @@ const CartPage = () => {
 
       clearCart();
       router.push(`/history`);
-      // หรืออาจจะไปหน้าขอบคุณพร้อมส่ง orderId -> router.push(`/thank-you?orderId=${data.orderId}`);
-
     } catch (error: unknown) {
       console.error('Failed to create order:', error);
       const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดบางอย่าง โปรดลองอีกครั้ง';
@@ -86,9 +89,10 @@ const CartPage = () => {
               {items.map((item) => (
                 <div key={item.id} className="flex items-center justify-between border-b pb-4">
                   <div className="flex items-center gap-4">
+                    {/* เพิ่ม null check สำหรับ item.name */}
                     <Image
-                      src={item.image || `https://placehold.co/80x80/e2e8f0/64748b?text=${item.name.charAt(0)}`}
-                      alt={item.name}
+                      src={(item as any).image || `https://placehold.co/80x80/e2e8f0/64748b?text=${item.name ? item.name.charAt(0) : '?'}`}
+                      alt={item.name || 'สินค้า'}
                       width={80}
                       height={80}
                       className="rounded-md object-cover"
@@ -100,15 +104,17 @@ const CartPage = () => {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                      {/* 4. เรียกใช้ฟังก์ชันที่ถูกต้อง */}
+                      <Button variant="ghost" size="icon" onClick={() => decreaseQuantity(item.id)}>
                         <MinusCircle className="h-5 w-5" />
                       </Button>
                       <span>{item.quantity}</span>
-                      <Button variant="ghost" size="icon" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                      <Button variant="ghost" size="icon" onClick={() => increaseQuantity(item.id)}>
                         <PlusCircle className="h-5 w-5" />
                       </Button>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeFromCart(item.id)}>
+                    {/* 5. เรียกใช้ฟังก์ชันที่ถูกต้อง */}
+                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeItem(item.id)}>
                       <Trash2 className="h-5 w-5" />
                     </Button>
                   </div>

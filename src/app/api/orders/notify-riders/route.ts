@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     const storeLocation = storeData.location?.address || 'ไม่ระบุ';
 
     // 3. Create a more detailed and readable notification message
-    const itemsSummary = orderData.items.map((item: { productName: string; quantity: number; }) => `  - ${item.productName} (x${item.quantity})`).join('\n');
+    const itemsSummary = orderData.items.map((item: { name: string; quantity: number; }) => `  - ${item.name} (x${item.quantity})`).join('\\n');
     const message = `
 🚨 *มีออเดอร์ใหม่เข้าจ้า!* 🚨
 
