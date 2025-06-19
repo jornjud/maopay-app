@@ -1,5 +1,7 @@
 "use client";
 
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useState } from 'react';
 import { useCartStore } from '@/store/cartStore'; 
 import { Button } from '@/components/ui/button';
@@ -8,6 +10,7 @@ import Image from 'next/image';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
+
 
 const CartPage = () => {
   const { items, removeItem, increaseQuantity, decreaseQuantity, clearCart } = useCartStore();
@@ -20,55 +23,62 @@ const CartPage = () => {
 
   const handleCheckout = async () => {
     if (!user) {
-      router.push('/login?redirect=/cart');
-      return;
+        router.push('/login?redirect=/cart');
+        return;
     }
 
     if (items.length === 0) {
-      setError("ตะกร้าของคุณว่างเปล่า");
-      return;
+        setError("ตะกร้าของมึงว่างเปล่าเว้ยเพื่อน!");
+        return;
     }
-    
+
     const storeId = useCartStore.getState().storeId;
 
     if (!storeId) {
-      setError("ไม่สามารถดำเนินการต่อได้: ไม่พบข้อมูลร้านค้าในตะกร้า");
-      return;
+        setError("ชิบหายละ! ไม่เจอ ID ร้านค้าในตะกร้า, ทำต่อไม่ได้ว่ะ");
+        return;
     }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/orders/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          items: items,
-          total: total,
-          storeId: storeId,
-        }),
-      });
+        // --- สร้างข้อมูลออเดอร์ ---
+        const orderData = {
+            userId: user.uid, // ID ของลูกค้า
+            storeId: storeId, // ID ของร้านค้า
+            items: items.map(item => ({ // เอาเฉพาะข้อมูลที่จำเป็น
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                image: item.image || ''
+            })),
+            total: total,
+            status: 'pending', // สถานะเริ่มต้น
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            // เพิ่มที่อยู่จัดส่ง ถ้ามี
+            // deliveryAddress: { address: 'บ้านกูเอง 123/45' } 
+        };
 
-      const data = await response.json();
+        // --- ยิงตรงไป Firestore เลยเพื่อน! ---
+        const orderRef = await addDoc(collection(db, 'orders'), orderData);
+        console.log("สร้างออเดอร์สำเร็จ! ID:", orderRef.id);
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Network response was not ok');
-      }
+        // เคลียร์ตะกร้า แล้วพาไปหน้าประวัติการสั่งซื้อ
+        clearCart();
+        alert("สั่งซื้อสำเร็จแล้วเพื่อน! ขอบคุณที่ใช้บริการ!");
+        router.push(`/history`); 
 
-      clearCart();
-      router.push(`/history`);
     } catch (error: unknown) {
-      console.error('Failed to create order:', error);
-      const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดบางอย่าง โปรดลองอีกครั้ง';
-      setError(errorMessage);
+        console.error('Failed to create order:', error);
+        const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดบางอย่าง โปรดลองอีกครั้ง';
+        setError(`สร้างออเดอร์ไม่สำเร็จว่ะเพื่อน: ${errorMessage}`);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
+};
 
   return (
     <div className="container mx-auto py-8">
