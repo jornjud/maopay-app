@@ -1,10 +1,9 @@
-// @filename: src/app/history/page.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../../lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
 interface OrderHistoryItem {
@@ -58,13 +57,37 @@ export default function OrderHistoryPage() {
         <div className="container mx-auto p-4">
             <h1 className="text-2xl font-bold mb-6">ประวัติการสั่งซื้อ</h1>
             {orderHistory.length === 0 ? (
-                <p>คุณยังไม่มีประวัติการสั่งซื้อ</p>
+                <div className="text-center py-10 bg-white rounded-lg shadow">
+                    <p className="text-gray-500">คุณยังไม่มีประวัติการสั่งซื้อ</p>
+                </div>
             ) : (
                 <div className="space-y-4">
                     {orderHistory.map(order => (
                         <div key={order.id} className="bg-white shadow rounded-lg p-4">
-                            <p className="font-semibold">Order #{order.id.substring(0, 7)}</p>
-                             <p className="text-right font-bold mt-4">Total: {order.totalPrice.toFixed(2)} THB</p>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-semibold text-gray-800">Order #{order.id.substring(0, 7)}</p>
+                                    <p className="text-sm text-gray-500">
+                                        {new Date(order.timestamp.seconds * 1000).toLocaleString()}
+                                    </p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                                    order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                    {order.status}
+                                </span>
+                            </div>
+                            <div className="mt-4 border-t pt-4">
+                               <ul className="space-y-1">
+                                   {order.items.map((item, index) => (
+                                       <li key={index} className="text-sm text-gray-600 flex justify-between">
+                                           <span>{item.productName}</span>
+                                           <span>x{item.quantity}</span>
+                                       </li>
+                                   ))}
+                               </ul>
+                            </div>
+                             <p className="text-right font-bold text-lg text-gray-800 mt-4">Total: {order.totalPrice.toFixed(2)} THB</p>
                         </div>
                     ))}
                 </div>

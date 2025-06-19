@@ -1,10 +1,9 @@
-// @filename: src/app/dashboard/admin/page.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../../lib/firebase';
 import { collection, doc, onSnapshot, query, where, updateDoc, getDoc } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Define interfaces for data structures
 interface StoreApplication {
@@ -72,11 +71,9 @@ export default function AdminDashboardPage() {
         const collectionName = type === 'store' ? 'stores' : 'riders';
         const roleName = type === 'store' ? 'store_owner' : 'rider';
         try {
-            // Approve the application
             const appRef = doc(db, collectionName, id);
             await updateDoc(appRef, { status: 'approved' });
 
-            // Update user's role
             const userRef = doc(db, 'users', userId);
             await updateDoc(userRef, { role: roleName });
 
@@ -99,40 +96,40 @@ export default function AdminDashboardPage() {
         }
     };
 
-    if (loading) return <div>Loading...</div>;
-    if (userRole !== 'admin') return <div>Access Denied. You are not an admin.</div>;
+    if (loading) return <div className="text-center p-10">Loading...</div>;
+    if (userRole !== 'admin') return <div className="text-center p-10 text-red-500">Access Denied. You are not an admin.</div>;
 
     return (
         <div className="container mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
 
-            <section>
-                <h2 className="text-xl font-semibold mb-2">Pending Store Applications ({storeApps.length})</h2>
-                <div className="space-y-2">
+            <section className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700">Pending Store Applications ({storeApps.length})</h2>
+                <div className="space-y-3">
                     {storeApps.length > 0 ? storeApps.map(app => (
-                        <div key={app.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
-                            <span>{app.name || 'N/A'}</span>
-                            <div>
-                                <button onClick={() => handleApprove('store', app.id, app.ownerId)} className="bg-green-500 text-white px-2 py-1 rounded mr-2">Approve</button>
-                                <button onClick={() => handleReject('store', app.id)} className="bg-red-500 text-white px-2 py-1 rounded">Reject</button>
+                        <div key={app.id} className="p-4 bg-gray-50 rounded-md flex justify-between items-center">
+                            <span className="font-medium text-gray-800">{app.name || 'N/A'}</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleApprove('store', app.id, app.ownerId)} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm">Approve</button>
+                                <button onClick={() => handleReject('store', app.id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm">Reject</button>
                             </div>
                         </div>
-                    )) : <p>No pending store applications.</p>}
+                    )) : <p className="text-gray-500">No pending store applications.</p>}
                 </div>
             </section>
 
-            <section className="mt-8">
-                <h2 className="text-xl font-semibold mb-2">Pending Rider Applications ({riderApps.length})</h2>
-                 <div className="space-y-2">
+            <section className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700">Pending Rider Applications ({riderApps.length})</h2>
+                 <div className="space-y-3">
                     {riderApps.length > 0 ? riderApps.map(app => (
-                        <div key={app.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
-                            <span>{app.name || 'N/A'}</span>
-                            <div>
-                                <button onClick={() => handleApprove('rider', app.id, app.userId)} className="bg-green-500 text-white px-2 py-1 rounded mr-2">Approve</button>
-                                <button onClick={() => handleReject('rider', app.id)} className="bg-red-500 text-white px-2 py-1 rounded">Reject</button>
+                        <div key={app.id} className="p-4 bg-gray-50 rounded-md flex justify-between items-center">
+                            <span className="font-medium text-gray-800">{app.name || 'N/A'}</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleApprove('rider', app.id, app.userId)} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm">Approve</button>
+                                <button onClick={() => handleReject('rider', app.id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm">Reject</button>
                             </div>
                         </div>
-                    )) : <p>No pending rider applications.</p>}
+                    )) : <p className="text-gray-500">No pending rider applications.</p>}
                 </div>
             </section>
         </div>
