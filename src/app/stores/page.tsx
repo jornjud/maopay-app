@@ -20,7 +20,7 @@ export default function StoresPage() {
     const [selectedType, setSelectedType] = useState('all');
 
     useEffect(() => {
-        let storesQuery = query(collection(db, "stores"), where("status", "==", "approved"));
+        const storesQuery = query(collection(db, "stores"), where("status", "==", "approved"));
         
         const unsubscribe = onSnapshot(storesQuery, (snapshot) => {
             const storesData = snapshot.docs.map(doc => ({

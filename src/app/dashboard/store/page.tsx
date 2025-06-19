@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, doc, getDoc, updateDoc, addDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,9 +106,10 @@ export default function StoreDashboardPage() {
           } else {
              setLoading(false);
           }
-        } catch (err) {
-            console.error(err)
-            setError(err instanceof Error ? err.message : "An unknown error occurred.");
+        } catch (error: unknown) {
+            console.error(error)
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            setError(errorMessage);
             setLoading(false);
         }
       } else {
@@ -136,8 +137,8 @@ export default function StoreDashboardPage() {
       setNewProductDescription('');
       setNewProductPrice('');
       alert("Product added successfully!");
-    } catch (err) {
-        console.error(err)
+    } catch (error: unknown) {
+        console.error(error)
         alert("Failed to add product.");
     }
   };
@@ -146,8 +147,8 @@ export default function StoreDashboardPage() {
     try {
       await updateDoc(doc(db, 'orders', orderId), { status: newStatus });
       alert(`Order status updated to ${newStatus}`);
-    } catch (err) {
-        console.error(err)
+    } catch (error: unknown) {
+        console.error(error)
         alert("Failed to update order status.");
     }
   };
@@ -162,8 +163,8 @@ export default function StoreDashboardPage() {
       });
       setIsEditingStore(false);
       alert('Store information updated!');
-    } catch (err) {
-        console.error(err)
+    } catch (error: unknown) {
+        console.error(error)
         alert('Failed to update store information.');
     }
   };

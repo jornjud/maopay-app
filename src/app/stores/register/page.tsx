@@ -64,8 +64,9 @@ export default function RegisterStorePage() {
       }, 2000);
 
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบ';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

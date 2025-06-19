@@ -63,9 +63,10 @@ const CartPage = () => {
       router.push(`/history`);
       // หรืออาจจะไปหน้าขอบคุณพร้อมส่ง orderId -> router.push(`/thank-you?orderId=${data.orderId}`);
 
-    } catch (err: any) {
-      console.error('Failed to create order:', err);
-      setError(err.message || 'เกิดข้อผิดพลาดบางอย่าง โปรดลองอีกครั้ง');
+    } catch (error: unknown) {
+      console.error('Failed to create order:', error);
+      const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดบางอย่าง โปรดลองอีกครั้ง';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
