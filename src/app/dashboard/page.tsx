@@ -10,7 +10,7 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LayoutDashboard, ShoppingBag, Store, Bike, UserCog } from "lucide-react";
+import { ShoppingBag, Store, Bike, UserCog } from "lucide-react";
 
 // สร้าง Interface สำหรับ UserProfile
 interface UserProfile {
