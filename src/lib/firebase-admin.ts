@@ -10,5 +10,6 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const auth = admin.auth();
+const messaging = admin.messaging(); // <-- 🔥 เพิ่มบรรทัดนี้เข้าไป!
 
-export { db, auth };
+export { db, auth, messaging }; // <-- 🔥 แล้วก็เพิ่ม `messaging` ตรงที่ export ด้วย!

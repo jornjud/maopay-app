@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, auth as adminAuth } from '@/lib/firebase-admin'; // แก้เป็น adminAuth
+//       👇 แก้ตรงนี้! เอา messaging เข้ามาแทน adminAuth
+import { db, messaging } from '@/lib/firebase-admin'; 
 import { doc, getDoc } from 'firebase/firestore';
 
-// --- 👇👇 เพิ่มตรงนี้เลยเพื่อน! 👇👇 ---
+// ... (ฟังก์ชัน sendTelegramNotification เหมือนเดิม ไม่ต้องแก้) ...
 
-// Interface for the data expected by the Telegram API
-interface TelegramSendMessagePayload {
-  chat_id: string;
-  text: string;
-  parse_mode: 'Markdown' | 'HTML';
-  reply_markup?: {
-    inline_keyboard: { text: string; url: string; }[][];
-  };
-}
-
-// Function to send the notification to Telegram
 async function sendTelegramNotification(chat_id: string, text: string, orderId: string) {
   const TELEGRAM_API_URL = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-  // Construct a URL for the rider to view the order details
   const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/rider?orderId=${orderId}`;
 
-  const payload: TelegramSendMessagePayload = {
+  const payload: { chat_id: string; text: string; parse_mode: 'Markdown' | 'HTML'; reply_markup?: { inline_keyboard: { text: string; url: string; }[][]; }; } = {
     chat_id: chat_id,
     text: text,
     parse_mode: 'Markdown',
@@ -37,27 +26,21 @@ async function sendTelegramNotification(chat_id: string, text: string, orderId: 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
     const result = await response.json();
-
     if (!result.ok) {
       console.error('Telegram API Error:', result.description);
       throw new Error(`Telegram API responded with an error: ${result.description}`);
     }
-
     console.log('Successfully sent message to Telegram');
     return result;
-
   } catch (error) {
     console.error('Failed to send notification to Telegram:', error);
-    // Do not re-throw the error to prevent the entire endpoint from failing
-    // Just log it and move on
   }
 }
 
-// --- ฟังก์ชันใหม่! สำหรับยิง Push Notification ของจริง! ---
+
 async function sendPushNotification(title: string, body: string, orderId: string) {
-    const topic = 'new-jobs'; // เราจะยิงไปที่ Topic นี้ ไรเดอร์ทุกคนต้องมา Subscribe
+    const topic = 'new-jobs';
 
     const message = {
         notification: {
@@ -69,14 +52,15 @@ async function sendPushNotification(title: string, body: string, orderId: string
                 link: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/rider?orderId=${orderId}`
             },
             notification: {
-                icon: "https://www.maopay-app.vercel.app/favicon.ico", // เปลี่ยนเป็น URL รูปไอคอนของนาย
+                icon: "https://www.maopay-app.vercel.app/favicon.ico",
             }
         },
         topic: topic,
     };
 
     try {
-        const response = await adminAuth.messaging().send(message);
+        // --- 👇 แก้ตรงนี้! ให้เรียกจาก messaging ตรงๆ เลย ---
+        const response = await messaging.send(message);
         console.log('Successfully sent push notification:', response);
         return { success: true, response };
     } catch (error) {
@@ -115,7 +99,6 @@ export async function POST(req: NextRequest) {
 *ยอดรวม:* ${orderData.total.toFixed(2)} บาท
     `;
 
-    // --- ยิงแม่ม 2 ที่เลย ทั้ง Telegram ทั้ง Push Notification ---
     await sendTelegramNotification(process.env.TELEGRAM_RIDER_GROUP_CHAT_ID, telegramMessage, orderId);
     await sendPushNotification(notiTitle, notiBody, orderId);
 
