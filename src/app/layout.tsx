@@ -1,10 +1,11 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Kanit } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/components/auth/AuthProvider";
-import { FirebaseMessagingProvider } from "@/components/auth/FirebaseMessagingProvider"; // 1. Import เข้ามา
+// ไม่ต้อง import FirebaseMessagingProvider แล้ว!
 
 const kanit = Kanit({
   subsets: ["latin", "thai"],
@@ -25,14 +26,12 @@ export default function RootLayout({
     <html lang="th">
       <body className={kanit.className}>
         <AuthProvider>
-          {/* 2. เอามาครอบแอปของเราไว้ตรงนี้! */}
-          <FirebaseMessagingProvider>
-            <Navbar />
-            <main className="min-h-screen bg-slate-50">
-              {children}
-            </main>
-            <Footer />
-          </FirebaseMessagingProvider>
+          {/* เอา Provider ที่ครอบไว้ออก ให้เหลือแค่นี้ */}
+          <Navbar />
+          <main className="min-h-screen bg-slate-50">
+            {children}
+          </main>
+          <Footer />
         </AuthProvider>
       </body>
     </html>

@@ -1,17 +1,56 @@
+// src/components/layout/Navbar.tsx
 "use client";
 
+import { useEffect } from 'react'; // 1. เพิ่ม useEffect
 import Link from "next/link";
 import { useCartStore } from "@/store/cartStore";
 import { ShoppingCart, LogOut, User as UserIcon, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { auth } from "@/lib/firebase";
+import { auth, app } from "@/lib/firebase"; // 2. เพิ่ม app เข้ามา
 import { Button } from "@/components/ui/button";
-import { NotificationBell } from './NotificationBell'; // <-- import เข้ามาแล้ว ถูกต้อง!
+import { NotificationBell } from './NotificationBell';
+
+// --- 3. เพิ่ม imports สำหรับ Messaging ---
+import { getMessaging, onMessage } from 'firebase/messaging';
+import { useNotificationStore } from '@/store/notificationStore';
 
 export const Navbar = () => {
   const items = useCartStore((state) => state.items);
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
   const { user, loading } = useAuth();
+  const { addNotification } = useNotificationStore(); // 4. ดึงฟังก์ชันเพิ่มแจ้งเตือนมา
+
+  // --- 5. เพิ่ม useEffect สำหรับดักฟัง Notification โดยเฉพาะ! ---
+  useEffect(() => {
+    // จะทำงานก็ต่อเมื่อ user ล็อกอินแล้วเท่านั้น
+    if (user && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const messaging = getMessaging(app);
+
+        // ตั้งค่า "หูทิพย์" ดักฟังข้อความ
+        const unsubscribe = onMessage(messaging, (payload) => {
+          console.log('✅ NAV-BAR: Foreground message received!', payload);
+
+          const notiTitle = payload.notification?.title || 'แจ้งเตือนใหม่';
+          const notiBody = payload.notification?.body || 'ไม่มีเนื้อหา';
+
+          // ยัดแจ้งเตือนใหม่เข้าไปใน Store! (เดี๋ยวกระดิ่งมันก็อัปเดตเอง)
+          addNotification({
+            message: `${notiTitle}: ${notiBody}`,
+            role: 'all',
+          });
+        });
+
+        // Cleanup function
+        return () => {
+          console.log("Unsubscribing from foreground messages in Navbar.");
+          unsubscribe();
+        };
+      } catch (error) {
+        console.error("Failed to initialize foreground messaging in Navbar:", error);
+      }
+    }
+  }, [user, addNotification]); // ให้มันทำงานใหม่ทุกครั้งที่ user หรือ addNotification เปลี่ยน
 
   const handleLogout = async () => {
     try {
@@ -52,15 +91,12 @@ export const Navbar = () => {
           {loading ? (
             <div className="h-10 w-24 bg-gray-200 rounded-full animate-pulse"></div>
           ) : user ? (
-            <div className="flex items-center space-x-2 md:space-4"> {/* <--- ปรับ space ตรงนี้ให้ดูสวยงามขึ้น */}
-               
-               
+            <div className="flex items-center space-x-2 md:space-4">
                <NotificationBell />
-               
                <Link href="/dashboard" className="hover:text-red-600" title="แดชบอร์ด">
                   <LayoutDashboard className="h-6 w-6" />
               </Link>
-			  <Link href="/history" className="hover:text-red-600" title="ประวัติการสั่งซื้อ">
+			        <Link href="/history" className="hover:text-red-600" title="ประวัติการสั่งซื้อ">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M12 8v4l2 2"/></svg>
               </Link>
                <Link href="/profile" className="hover:text-red-600" title="โปรไฟล์">
