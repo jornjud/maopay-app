@@ -262,6 +262,8 @@ export default function StoreDashboardPage() {
 			  
           case 'paid':
                return <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateOrderStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>
+			   case 'cooking':
+              return <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateOrderStatus(order.id, 'ready_for_pickup')}>🍲 ทำอาหารเสร็จแล้ว</Button>
           case 'ready_for_pickup':
                return <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => handleNotifyRiders(order.id)}>🛵 เรียกไรเดอร์</Button>
           default:
