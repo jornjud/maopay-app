@@ -60,7 +60,6 @@ export default function StoreDashboardPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // --- Edit Store States ---
   const [isEditingStore, setIsEditingStore] = useState(false);
@@ -108,7 +107,6 @@ export default function StoreDashboardPage() {
         setLoading(false);
       }, (err) => {
           console.error(err);
-          setError("Failed to fetch store data.");
           setLoading(false);
       });
       return () => unsubscribeStore();
@@ -216,7 +214,6 @@ export default function StoreDashboardPage() {
   };
 
   if (loading) return <div className="text-center p-10">กำลังโหลด...</div>;
-  if (error) return <div className="container mx-auto p-8 text-center text-red-500 bg-red-100 rounded-lg"><h2>เกิดข้อผิดพลาด:</h2><p>{error}</p></div>;
   if (!user) return <div className="text-center p-10"><Link href="/login">กรุณาเข้าสู่ระบบ</Link></div>;
 
   if (!storeInfo) {
