@@ -14,7 +14,7 @@ import { ShoppingBag, Store, Bike, UserCog } from "lucide-react";
 
 // สร้าง Interface สำหรับ UserProfile
 interface UserProfile {
-  role: 'customer' | 'store_owner' | 'rider' | 'admin';
+  role: 'customer' | 'owner' | 'rider' | 'admin';
   displayName: string;
 }
 
