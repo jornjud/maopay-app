@@ -256,6 +256,10 @@ export default function StoreDashboardPage() {
                      <Button size="sm" variant="destructive" onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}>❌ ยกเลิก</Button>
                   </div>
               )
+			  
+			  case 'waiting_for_payment':
+              return <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600" onClick={() => handleUpdateOrderStatus(order.id, 'paid')}>💰 ยืนยันรับเงินแล้ว</Button>
+			  
           case 'paid':
                return <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateOrderStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>
           case 'ready_for_pickup':
