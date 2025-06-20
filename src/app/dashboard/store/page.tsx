@@ -41,6 +41,8 @@ import {
   CardFooter 
 } from '@/components/ui/card';
 
+import { RotateCcw } from 'lucide-react'; // New icon for the button
+
 // --- Interfaces ---
 interface Store {
   name: string;
@@ -80,6 +82,24 @@ export default function StoreDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isReverting, setIsReverting] = useState<string | null>(null);
+
+// New handler function
+    const handleRevertConfirmation = async (orderId: string) => {
+        // ... (confirmation dialog logic)
+        setIsReverting(orderId);
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            const response = await fetch('/api/orders/revert-confirmation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ orderId }),
+            });
+            // ... (handle response)
+        } catch (error) { /* ... */ } finally {
+            setIsReverting(null);
+        }
+    };
 
   // --- Edit Store States ---
   const [isEditingStore, setIsEditingStore] = useState(false);
@@ -259,6 +279,14 @@ export default function StoreDashboardPage() {
 			  
 			  case 'waiting_for_payment':
               return <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600" onClick={() => handleUpdateOrderStatus(order.id, 'paid')}>💰 ยืนยันรับเงินแล้ว</Button>
+			  <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleRevertConfirmation(order.id)}
+                            disabled={isReverting === order.id}                      
+                            <RotateCcw className={`h-4 w-4 mr-2 ${isReverting === order.id ? 'animate-spin' : ''}`} />
+                            {isReverting === order.id ? 'Reverting...' : 'แก้ไข'}
+                        </Button>
 			  
           case 'paid':
                return <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateOrderStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>
