@@ -273,19 +273,12 @@ const handleNotifyRiders = async (orderId: string, storeId: string) => {
                            </ul>
                            <p><strong>ยอดรวม:</strong> {order.totalPrice} บาท</p>
                            <p><strong>สถานะ:</strong> <span className="font-semibold">{order.status}</span></p>
-                           <// src/app/dashboard/page.tsx
-
-							<div className="flex gap-2 mt-3">
-								{/* แก้ 'pending' เป็น 'waiting_for_confirmation' และเปลี่ยน status ถัดไปเป็น 'waiting_for_payment' */}
-								{order.status === 'waiting_for_confirmation' && <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(order.id, 'waiting_for_payment')}>✅ ยืนยันออเดอร์</Button>}
-								
-								{/* อันนี้เหมือนเดิมก็ได้ หรือจะแก้ตาม flow ใหม่ก็ดี */}
-								{order.status === 'paid' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>}
-								{order.status === 'ready_for_pickup' && <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => handleNotifyRiders(order.id, selectedStoreId)}>🛵 เรียกไรเดอร์</Button>}
-
-								{/* ปุ่มยกเลิกยังใช้ได้ดีอยู่ */}
-								{order.status !== 'completed' && order.status !== 'cancelled' && <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(order.id, 'cancelled')}>ยกเลิก</Button>}
-							</div>
+                           <div className="flex gap-2 mt-3">
+                               {order.status === 'waiting_for_confirmation' && <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(order.id, 'waiting_for_payment')}>✅ ยืนยันออเดอร์</Button>}
+                               {order.status === 'paid' && <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>}
+							   {order.status === 'ready_for_pickup' && <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => handleNotifyRiders(order.id, selectedStoreId)}>🛵 เรียกไรเดอร์</Button>}
+                               {order.status !== 'completed' && order.status !== 'cancelled' && <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(order.id, 'cancelled')}>ยกเลิก</Button>}
+                           </div>
                         </Card>
                     )) : <p className="text-gray-500">ยังไม่มีออเดอร์</p>}
                     </CardContent>
