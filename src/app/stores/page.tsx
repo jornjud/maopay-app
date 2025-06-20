@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-// --- Firebase Imports ---
+// --- Firebase Imports ---เหมา
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   collection, 
