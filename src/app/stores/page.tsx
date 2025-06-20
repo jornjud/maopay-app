@@ -6,7 +6,7 @@ import Link from 'next/link';
 // --- Firebase Imports ---
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, doc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase'; // FIX: แก้ Path ให้ถูกต้องและรวมไว้ด้วยกัน
+import { auth, db } from '@/lib/firebase';
 
 // --- UI Component Imports ---
 import { Button } from '@/components/ui/button';
