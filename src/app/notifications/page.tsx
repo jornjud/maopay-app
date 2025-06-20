@@ -3,12 +3,30 @@
 
 import React, { useState } from 'react';
 import { getMessaging, getToken } from "firebase/messaging";
-import { app } from '@/lib/firebase';
+import { app, auth, db } from '@/lib/firebase'; // << เพิ่ม auth, db
 import { Button } from '@/components/ui/button';
+import { doc, updateDoc } from 'firebase/firestore'; // << เพิ่ม import
 
 export default function App() {
   const [notificationToken, setNotificationToken] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+
+  // --- 👇 ฟังก์ชันใหม่ เอาไว้เซฟ Token ลง Firestore 👇 ---
+  const saveTokenToFirestore = async (token: string) => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      try {
+        await updateDoc(userDocRef, { fcmToken: token });
+        console.log("Token saved to Firestore for user:", currentUser.uid);
+      } catch (error) {
+        console.error("Error saving token to Firestore:", error);
+      }
+    } else {
+        console.log("No user logged in to save token.");
+    }
+  };
+  // --- จบฟังก์ชันใหม่ ---
 
   const requestPermissionAndGetToken = async () => {
     setMessage({ type: 'info', text: 'กำลังขออนุญาต...' });
@@ -26,8 +44,11 @@ export default function App() {
         if (currentToken) {
           setNotificationToken(currentToken);
           console.log('FCM Token:', currentToken);
+          
+          // --- 👇 เรียกใช้ฟังก์ชันเซฟ Token ตรงนี้! 👇 ---
+          await saveTokenToFirestore(currentToken); 
+          
           setMessage({ type: 'success', text: 'ลงทะเบียนรับแจ้งเตือนสำเร็จแล้ว! 🎉' });
-          // เราลบ onMessage ออกจากตรงนี้แล้ว เพราะย้ายไปอยู่ใน FirebaseMessagingProvider
         } else {
           setMessage({ type: 'error', text: 'ชิบหาย! ดึง Token ไม่ได้ว่ะเพื่อน ลองเช็คคอนโซลดู' });
         }

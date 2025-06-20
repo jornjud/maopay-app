@@ -1,3 +1,4 @@
+// src/app/cart/page.tsx
 "use client";
 
 import { addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
@@ -23,9 +24,8 @@ const CartPage = () => {
 
   const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   
-  // --- คำนวณค่าบริการตาม Flow ใหม่ ---
   const deliveryFee = Math.ceil(items.reduce((acc, item) => acc + item.quantity, 0) / 5) * 10;
-  const appFee = 1; // ค่าบริการแอป 1 บาท
+  const appFee = 1; 
   const total = subtotal + deliveryFee + appFee;
 
   const handleCheckout = async () => {
@@ -57,7 +57,6 @@ const CartPage = () => {
         }
         const storeData = storeSnap.data();
 
-        // --- สร้างข้อมูลออเดอร์ตาม Flow V2.0 ---
         const orderData = {
             userId: user.uid,
             customerName: user.displayName || user.email,
@@ -76,21 +75,39 @@ const CartPage = () => {
                 appFee: appFee,
             },
             total: total,
-            status: 'waiting_for_confirmation', // <-- สถานะเริ่มต้นใหม่!
+            status: 'waiting_for_confirmation',
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             deliveryAddress: {
                 address: deliveryAddress
             },
             payment: {
-                qrImage: `https://promptpay.io/0812345678/${total.toFixed(2)}.png`, // <-- QR Code ของแอปเรา
+                qrImage: `https://promptpay.io/0812345678/${total.toFixed(2)}.png`,
                 paidAt: null,
             }
         };
 
         const orderRef = await addDoc(collection(db, 'orders'), orderData);
-        console.log("สร้างออเดอร์สำเร็จ! ID:", orderRef.id);
+        
+        // --- 👇 ยิงแจ้งเตือนไปหาร้านค้าหลังจากสร้างออเดอร์สำเร็จ! 👇 ---
+        try {
+            const token = await user.getIdToken();
+            await fetch('/api/notify-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    userId: storeData.ownerId, // << ID ของเจ้าของร้าน
+                    title: '🎉 ออเดอร์ใหม่เข้าแล้ว!',
+                    body: `ลูกค้า (${user.displayName || 'N/A'}) สั่งออเดอร์ใหม่เข้ามาแล้วเพื่อน!`,
+                    link: '/dashboard/store'
+                }),
+            });
+        } catch(e) {
+            console.error("Failed to send notification to store owner:", e)
+        }
+        // --- จบส่วนยิงแจ้งเตือน ---
 
+        console.log("สร้างออเดอร์สำเร็จ! ID:", orderRef.id);
         clearCart();
         alert("ส่งคำสั่งซื้อไปให้ร้านค้าแล้ว! รอร้านยืนยันแป๊ปนะเพื่อน!");
         router.push(`/history`); 
