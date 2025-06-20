@@ -5,27 +5,24 @@ import React, { useState } from 'react';
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { app } from '@/lib/firebase';
 import { useNotificationStore } from '@/store/notificationStore';
+import { Button } from '@/components/ui/button'; // <-- เพิ่มบรรทัดนี้เข้ามา
 
 export default function App() {
   const [notificationToken, setNotificationToken] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const { addNotification } = useNotificationStore();
 
-  // --- ฟังก์ชันสำหรับขออนุญาตและรับ Token ---
   const requestPermissionAndGetToken = async () => {
     setMessage({ type: 'info', text: 'กำลังขออนุญาต...' });
     try {
       const messaging = getMessaging(app);
-      
-      // ขออนุญาตจาก User
       const permission = await Notification.requestPermission();
 
       if (permission === 'granted') {
         setMessage({ type: 'success', text: 'ได้รับอนุญาตแล้ว! กำลังดึง Token...' });
         
-        // รับ FCM Token
         const currentToken = await getToken(messaging, {
-          vapidKey: 'BKcjhwBLOSgnGyu8U1Ei0z3pQhmT7OkkU9ikKrlSHxQrA2sKLto8iaqK0Pa0LjjPSqxPUTbhiGXCOCVdxN1_w_U', // <-- เปลี่ยนเป็น VAPID Key ของนาย
+          vapidKey: 'BKcjhwBLOSgnGyu8U1Ei0z3pQhmT7OkkU9ikKrlSHxQrA2sKLto8iaqK0Pa0LjjPSqxPUTbhiGXCOCVdxN1_w_U',
         });
 
         if (currentToken) {
@@ -33,15 +30,13 @@ export default function App() {
           console.log('FCM Token:', currentToken);
           setMessage({ type: 'success', text: 'ลงทะเบียนรับแจ้งเตือนสำเร็จแล้ว! 🎉' });
           
-          // ตั้งค่า listener สำหรับรับข้อความตอนเปิดแอปอยู่
           onMessage(messaging, (payload) => {
             console.log('Message received. ', payload);
             setMessage({ type: 'info', text: `มีแจ้งเตือนใหม่: ${payload.notification?.title}` });
             
-            // เพิ่มการแจ้งเตือนเข้าไปใน Store ของเรา
             addNotification({
               message: payload.notification?.body || 'ไม่มีเนื้อหา',
-              role: 'all' // หรือจะเปลี่ยนตาม payload ก็ได้
+              role: 'all'
             });
           });
 
@@ -57,10 +52,7 @@ export default function App() {
     }
   };
   
-  // ฟังก์ชันนี้จะใช้ไม่ได้แล้ว เพราะเราจะยิง Notification จาก Backend แทน
-  const sendTestNotificationToServer = async () => {
-    alert("ตอนนี้เราจะยิงการแจ้งเตือนจากหลังบ้านโดยตรงนะเพื่อน! ไปลองดูที่หน้า Dashboard ของร้านค้า/ไรเดอร์เลย!");
-  }
+  // เราได้ลบฟังก์ชัน sendTestNotificationToServer ที่ไม่ได้ใช้ออกไปแล้ว
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 sm:p-6 lg:p-8">
