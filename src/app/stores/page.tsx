@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../../../lib/firebase';
+import { db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';  // FIX: ใช้ auth จาก firebase แทน        // firebase/auth
+// FIX: ลบ getDoc ที่ไม่ได้ใช้ออกไปจาก import นี้                  
 import { onAuthStateChanged, User } from 'firebase/auth';
 // FIX: ลบ getDoc ที่ไม่ได้ใช้ออกไปจาก import นี้
 import { collection, query, where, doc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
