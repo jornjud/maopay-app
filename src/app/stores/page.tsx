@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { auth } from '@/lib/firebase';  // FIX: ใช้ auth จาก firebase แทน        // firebase/auth
-// FIX: ลบ getDoc ที่ไม่ได้ใช้ออกไปจาก import นี้                  
+import Link from 'next/link';
 import { onAuthStateChanged, User } from 'firebase/auth';
-// FIX: ลบ getDoc ที่ไม่ได้ใช้ออกไปจาก import นี้
 import { collection, query, where, doc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
+
+// --- Import ของเรา ---
+import { auth, db } from '../../../lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,9 +19,7 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-  // FIX: ลบ DialogDescription ที่ไม่ได้ใช้ออก
 } from '@/components/ui/dialog';
-import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 
 // --- Interfaces (เหมือนเดิม) ---
@@ -62,7 +60,7 @@ export default function StoreDashboardPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // เราจะใช้ตัวแปรนี้แล้วนะ!
+  const [error, setError] = useState<string | null>(null);
 
   // --- Edit Store States ---
   const [isEditingStore, setIsEditingStore] = useState(false);
@@ -110,7 +108,7 @@ export default function StoreDashboardPage() {
         setLoading(false);
       }, (err) => {
           console.error(err);
-          setError("Failed to fetch store data."); // เรา set error ไว้ตรงนี้
+          setError("Failed to fetch store data.");
           setLoading(false);
       });
       return () => unsubscribeStore();
@@ -119,7 +117,6 @@ export default function StoreDashboardPage() {
     return () => unsubscribeAuth();
   }, []);
 
-  // useEffect สำหรับดึงข้อมูลเมนูและออเดอร์ (เหมือนเดิม)
   useEffect(() => {
       if (!storeId) {
           setMenuItems([]);
@@ -147,7 +144,6 @@ export default function StoreDashboardPage() {
   }, [storeId]);
 
 
-  // --- Handler Functions (เหมือนเดิมทั้งหมด) ---
   const handleUpdateStoreInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeId) return;
@@ -219,7 +215,6 @@ export default function StoreDashboardPage() {
     }
   };
 
-  // FIX: เพิ่มส่วนแสดงผล Error ตรงนี้!
   if (loading) return <div className="text-center p-10">กำลังโหลด...</div>;
   if (error) return <div className="container mx-auto p-8 text-center text-red-500 bg-red-100 rounded-lg"><h2>เกิดข้อผิดพลาด:</h2><p>{error}</p></div>;
   if (!user) return <div className="text-center p-10"><Link href="/login">กรุณาเข้าสู่ระบบ</Link></div>;
@@ -234,7 +229,6 @@ export default function StoreDashboardPage() {
     );
   }
 
-  // --- Render Functions for Order Cards (เหมือนเดิม) ---
   const renderOrderCardActions = (order: Order) => {
       switch(order.status) {
           case 'waiting_for_confirmation':
@@ -283,7 +277,6 @@ export default function StoreDashboardPage() {
       </header>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Orders Section */}
         <div className="lg:col-span-2 space-y-6">
             <h2 className="text-2xl font-semibold">รายการออเดอร์ ({orders.length})</h2>
             {orders.length > 0 ? (
@@ -310,7 +303,6 @@ export default function StoreDashboardPage() {
             ) : <p>ยังไม่มีออเดอร์เข้ามา</p>}
         </div>
 
-        {/* Menu Section */}
         <div className="space-y-6">
            <h2 className="text-2xl font-semibold">จัดการเมนู ({menuItems.length})</h2>
            <Dialog open={isAddingMenu} onOpenChange={setIsAddingMenu}>
@@ -332,7 +324,6 @@ export default function StoreDashboardPage() {
              {menuItems.map(item => (
                <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
                  <p>{item.name} - {item.price} THB</p>
-                 {/* TODO: Add edit/delete functionality */}
                </div>
              ))}
            </div>
@@ -341,4 +332,3 @@ export default function StoreDashboardPage() {
     </div>
   );
 }
-
