@@ -1,121 +1,77 @@
+// src/app/dashboard/store/page.tsx
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-// --- Firebase Imports (จัดระเบียบใหม่) ---
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { 
-  collection, 
-  query, 
-  where, 
-  doc, 
-  updateDoc, 
-  addDoc, 
-  onSnapshot, 
-  Timestamp, 
-  serverTimestamp 
-} from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-
-// --- UI Component Imports (จัดระเบียบใหม่) ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent, 
-  CardFooter 
-} from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { RotateCcw } from 'lucide-react';
 
-import { RotateCcw } from 'lucide-react'; // New icon for the button
-
-// --- Interfaces ---
-interface Store {
-  name: string;
-  description: string;
-  imageUrl: string;
-  ownerId: string;
-  telegramGroupId?: string;
-  paymentInfo?: {
-      accountName: string;
-      accountNumber: string;
-      bankName: string;
-  }
-}
-
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-}
-
-interface Order {
-  id: string;
-  customerName?: string;
-  items: { name: string; quantity: number }[];
-  total: number;
-  status: 'waiting_for_confirmation' | 'waiting_for_payment' | 'paid' | 'cooking' | 'ready_for_pickup' | 'completed' | 'cancelled';
-  createdAt: Timestamp;
-}
+// --- Interfaces (เหมือนเดิม) ---
+interface Store { name: string; description: string; imageUrl: string; ownerId: string; telegramGroupId?: string; paymentInfo?: { accountName: string; accountNumber: string; bankName: string; }}
+interface MenuItem { id: string; name: string; description: string; price: number; imageUrl: string; }
+interface Order { id: string; customerName?: string; items: { name: string; quantity: number }[]; total: number; status: 'waiting_for_confirmation' | 'waiting_for_payment' | 'paid' | 'cooking' | 'ready_for_pickup' | 'completed' | 'cancelled'; createdAt: Timestamp; }
 
 export default function StoreDashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [storeInfo, setStoreInfo] = useState<Store | null>(null);
-  const [storeId, setStoreId] = useState<string | null>(null);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isReverting, setIsReverting] = useState<string | null>(null);
+    // ... (State อื่นๆ เหมือนเดิม)
+    const [user, setUser] = useState<User | null>(null);
+    const [storeInfo, setStoreInfo] = useState<Store | null>(null);
+    const [storeId, setStoreId] = useState<string | null>(null);
+    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isReverting, setIsReverting] = useState<string | null>(null);
 
-// New handler function
+    const [isEditingStore, setIsEditingStore] = useState(false);
+    const [editedStoreName, setEditedStoreName] = useState('');
+    const [editedStoreDesc, setEditedStoreDesc] = useState('');
+    const [editedBankName, setEditedBankName] = useState('');
+    const [editedAccountName, setEditedAccountName] = useState('');
+    const [editedAccountNumber, setEditedAccountNumber] = useState('');
+
+    const [isAddingMenu, setIsAddingMenu] = useState(false);
+    const [newMenuName, setNewMenuName] = useState('');
+    const [newMenuDesc, setNewMenuDesc] = useState('');
+    const [newMenuPrice, setNewMenuPrice] = useState('');
+
+    // --- Function handleRevertConfirmation (ย้ายมาไว้ข้างใน component) ---
     const handleRevertConfirmation = async (orderId: string) => {
-        // ... (confirmation dialog logic)
+        if (!confirm("มึงแน่ใจนะว่าจะย้อนกลับการยืนยันออเดอร์นี้?")) return;
+        
         setIsReverting(orderId);
         try {
             const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error("Authentication token not found.");
+
             const response = await fetch('/api/orders/revert-confirmation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ orderId }),
             });
-            // ... (handle response)
-        } catch (error) { /* ... */ } finally {
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to revert order.');
+
+            alert(data.message);
+        } catch (error) {
+            console.error("Revert Error:", error);
+            alert(`เกิดข้อผิดพลาด: ${(error as Error).message}`);
+        } finally {
             setIsReverting(null);
         }
     };
-
-  // --- Edit Store States ---
-  const [isEditingStore, setIsEditingStore] = useState(false);
-  const [editedStoreName, setEditedStoreName] = useState('');
-  const [editedStoreDesc, setEditedStoreDesc] = useState('');
-  const [editedBankName, setEditedBankName] = useState('');
-  const [editedAccountName, setEditedAccountName] = useState('');
-  const [editedAccountNumber, setEditedAccountNumber] = useState('');
-
-  // --- Add Menu Item States ---
-  const [isAddingMenu, setIsAddingMenu] = useState(false);
-  const [newMenuName, setNewMenuName] = useState('');
-  const [newMenuDesc, setNewMenuDesc] = useState('');
-  const [newMenuPrice, setNewMenuPrice] = useState('');
-
-  useEffect(() => {
+    
+    // ... (useEffect และ handlers อื่นๆ เหมือนเดิม)
+    useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         setLoading(false);
@@ -253,7 +209,44 @@ export default function StoreDashboardPage() {
     }
   };
 
-  if (loading) return <div className="text-center p-10">กำลังโหลด...</div>;
+    // --- ส่วน renderOrderCardActions ที่แก้ไขแล้ว ---
+    const renderOrderCardActions = (order: Order) => {
+        switch (order.status) {
+            case 'waiting_for_confirmation':
+                return (
+                    <div className="flex gap-2">
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateOrderStatus(order.id, 'waiting_for_payment')}>✅ ยืนยันออเดอร์</Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}>❌ ยกเลิก</Button>
+                    </div>
+                )
+            case 'waiting_for_payment':
+                return (
+                    <div className="flex flex-wrap gap-2">
+                        <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600" onClick={() => handleUpdateOrderStatus(order.id, 'paid')}>💰 ยืนยันรับเงินแล้ว</Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRevertConfirmation(order.id)}
+                            disabled={isReverting === order.id}
+                        >
+                            <RotateCcw className={`h-4 w-4 mr-2 ${isReverting === order.id ? 'animate-spin' : ''}`} />
+                            {isReverting === order.id ? 'กำลังย้อนกลับ...' : 'แก้ไข'}
+                        </Button>
+                    </div>
+                )
+            case 'paid':
+                return <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateOrderStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>
+            case 'cooking':
+                return <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateOrderStatus(order.id, 'ready_for_pickup')}>🍲 ทำอาหารเสร็จแล้ว</Button>
+            case 'ready_for_pickup':
+                return <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => handleNotifyRiders(order.id)}>🛵 เรียกไรเดอร์</Button>
+            default:
+                return <p className="text-sm text-gray-500">รอการดำเนินการจากส่วนอื่น...</p>;
+        }
+    }
+    
+    // ... (ส่วน JSX ที่เหลือเหมือนเดิม)
+    if (loading) return <div className="text-center p-10">กำลังโหลด...</div>;
   if (error) return <div className="container mx-auto p-8 text-center text-red-500 bg-red-100 rounded-lg"><h2>เกิดข้อผิดพลาด:</h2><p>{error}</p></div>;
   if (!user) return <div className="text-center p-10"><Link href="/login">กรุณาเข้าสู่ระบบ</Link></div>;
 
@@ -266,39 +259,6 @@ export default function StoreDashboardPage() {
       </div>
     );
   }
-
-  const renderOrderCardActions = (order: Order) => {
-      switch(order.status) {
-          case 'waiting_for_confirmation':
-              return (
-                  <div className="flex gap-2">
-                     <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateOrderStatus(order.id, 'waiting_for_payment')}>✅ ยืนยันออเดอร์</Button>
-                     <Button size="sm" variant="destructive" onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}>❌ ยกเลิก</Button>
-                  </div>
-              )
-			  
-			  case 'waiting_for_payment':
-              return <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600" onClick={() => handleUpdateOrderStatus(order.id, 'paid')}>💰 ยืนยันรับเงินแล้ว</Button>
-			  <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => handleRevertConfirmation(order.id)}
-                            disabled={isReverting === order.id}                      
-                            <RotateCcw className={`h-4 w-4 mr-2 ${isReverting === order.id ? 'animate-spin' : ''}`} />
-                            {isReverting === order.id ? 'Reverting...' : 'แก้ไข'}
-                        </Button>
-			  
-          case 'paid':
-               return <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateOrderStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>
-			   case 'cooking':
-              return <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateOrderStatus(order.id, 'ready_for_pickup')}>🍲 ทำอาหารเสร็จแล้ว</Button>
-          case 'ready_for_pickup':
-               return <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => handleNotifyRiders(order.id)}>🛵 เรียกไรเดอร์</Button>
-          default:
-              return <p className="text-sm text-gray-500">รอการดำเนินการจากส่วนอื่น...</p>;
-      }
-  }
-
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">

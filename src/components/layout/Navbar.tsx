@@ -6,6 +6,7 @@ import { ShoppingCart, LogOut, User as UserIcon, LayoutDashboard } from "lucide-
 import { useAuth } from "@/components/auth/AuthProvider";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from './NotificationBell'; // <-- import เข้ามาแล้ว ถูกต้อง!
 
 export const Navbar = () => {
   const items = useCartStore((state) => state.items);
@@ -28,7 +29,6 @@ export const Navbar = () => {
         <div className="flex items-center space-x-2 md:space-x-4 text-gray-700">
           <Link href="/stores" className="hover:text-red-600">ร้านค้า</Link>
           
-          {/* --- 👇👇 เจ๊เพิ่มปุ่มสมัครเข้ามาตรงนี้ ถ้าล็อกอินแล้วจะเห็น! 👇👇 --- */}
           {user && (
             <>
               <Link href="/stores/register" passHref legacyBehavior>
@@ -39,7 +39,6 @@ export const Navbar = () => {
               </Link>
             </>
           )}
-          {/* --- 👆👆 จบส่วนที่เพิ่ม 👆👆 --- */}
 
           <Link href="/cart" className="relative">
             <ShoppingCart className="h-6 w-6 hover:text-red-600" />
@@ -53,7 +52,11 @@ export const Navbar = () => {
           {loading ? (
             <div className="h-10 w-24 bg-gray-200 rounded-full animate-pulse"></div>
           ) : user ? (
-            <div className="flex items-center space-x-2 md:space-x-3">
+            <div className="flex items-center space-x-2 md:space-4"> {/* <--- ปรับ space ตรงนี้ให้ดูสวยงามขึ้น */}
+               
+               
+               <NotificationBell />
+               
                <Link href="/dashboard" className="hover:text-red-600" title="แดชบอร์ด">
                   <LayoutDashboard className="h-6 w-6" />
               </Link>
