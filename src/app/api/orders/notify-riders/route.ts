@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-//       👇 แก้ตรงนี้! เอา messaging เข้ามาแทน adminAuth
+// เราจะใช้ db กับ messaging จากฝั่ง Admin อย่างเดียว
 import { db, messaging } from '@/lib/firebase-admin'; 
-import { doc, getDoc } from 'firebase/firestore';
 
-// ... (ฟังก์ชัน sendTelegramNotification เหมือนเดิม ไม่ต้องแก้) ...
+// 🔥 ลบ import ของฝั่ง Client ที่ใช้ผิดทิ้งไป!
+// import { doc, getDoc } from 'firebase/firestore'; 
 
+// ฟังก์ชัน sendTelegramNotification เหมือนเดิมเป๊ะๆ ไม่ต้องแก้
 async function sendTelegramNotification(chat_id: string, text: string, orderId: string) {
   const TELEGRAM_API_URL = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
   const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/rider?orderId=${orderId}`;
@@ -38,7 +39,7 @@ async function sendTelegramNotification(chat_id: string, text: string, orderId: 
   }
 }
 
-
+// ฟังก์ชัน sendPushNotification เหมือนเดิม ไม่ต้องแก้
 async function sendPushNotification(title: string, body: string, orderId: string) {
     const topic = 'new-jobs';
 
@@ -59,7 +60,6 @@ async function sendPushNotification(title: string, body: string, orderId: string
     };
 
     try {
-        // --- 👇 แก้ตรงนี้! ให้เรียกจาก messaging ตรงๆ เลย ---
         const response = await messaging.send(message);
         console.log('Successfully sent push notification:', response);
         return { success: true, response };
@@ -80,15 +80,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing orderId or storeId' }, { status: 400 });
     }
 
-    const storeRef = doc(db, 'stores', storeId);
-    const orderRef = doc(db, 'orders', orderId);
-    const [storeSnap, orderSnap] = await Promise.all([getDoc(storeRef), getDoc(orderRef)]);
-
-    if (!storeSnap.exists()) return NextResponse.json({ error: 'Store not found' }, { status: 404 });
-    if (!orderSnap.exists()) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    // --- 🔥🔥 แก้ตรงนี้! ใช้ cú pháp ของ Admin SDK 🔥🔥 ---
+    const storeRef = db.collection('stores').doc(storeId);
+    const orderRef = db.collection('orders').doc(orderId);
     
-    const storeData = storeSnap.data();
-    const orderData = orderSnap.data();
+    // 🔥 แก้ตรงนี้ด้วย! ใช้ .get() แทน getDoc()
+    const [storeSnap, orderSnap] = await Promise.all([storeRef.get(), orderRef.get()]);
+
+    if (!storeSnap.exists) return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    if (!orderSnap.exists) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    
+    const storeData = storeSnap.data()!;
+    const orderData = orderSnap.data()!;
     
     const notiTitle = `🚨 งานใหม่เข้า! จากร้าน ${storeData.name || 'N/A'}`;
     const notiBody = `มีออเดอร์ให้ไปส่งที่: ${orderData.deliveryAddress?.address || 'ไม่มีที่อยู่'}`;
