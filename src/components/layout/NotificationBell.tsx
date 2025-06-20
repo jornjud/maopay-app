@@ -1,13 +1,8 @@
 // src/components/layout/NotificationBell.tsx
 "use client";
 
-import { useState } from 'react';
 import { Bell } from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"; // <--- ตอนนี้จะ import ผ่านแล้ว
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNotificationStore } from '@/store/notificationStore';
 import Link from 'next/link';
 import { Button } from '../ui/button';
