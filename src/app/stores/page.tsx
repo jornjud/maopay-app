@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+
+// --- Firebase Imports ---
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, doc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase'; // FIX: แก้ Path ให้ถูกต้องและรวมไว้ด้วยกัน
 
-// --- Import ของเรา ---
-import { auth, db } from '@/lib/firebase';
+// --- UI Component Imports ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 
-// --- Interfaces (เหมือนเดิม) ---
+// --- Interfaces ---
 interface Store {
   name: string;
   description: string;
@@ -60,6 +62,7 @@ export default function StoreDashboardPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // --- Edit Store States ---
   const [isEditingStore, setIsEditingStore] = useState(false);
@@ -93,7 +96,6 @@ export default function StoreDashboardPage() {
           
           setStoreInfo(storeData);
           setStoreId(storeDocId);
-          // Initialize edit form states
           setEditedStoreName(storeData.name);
           setEditedStoreDesc(storeData.description);
           setEditedBankName(storeData.paymentInfo?.bankName || '');
@@ -107,6 +109,7 @@ export default function StoreDashboardPage() {
         setLoading(false);
       }, (err) => {
           console.error(err);
+          setError("Failed to fetch store data.");
           setLoading(false);
       });
       return () => unsubscribeStore();
@@ -214,6 +217,7 @@ export default function StoreDashboardPage() {
   };
 
   if (loading) return <div className="text-center p-10">กำลังโหลด...</div>;
+  if (error) return <div className="container mx-auto p-8 text-center text-red-500 bg-red-100 rounded-lg"><h2>เกิดข้อผิดพลาด:</h2><p>{error}</p></div>;
   if (!user) return <div className="text-center p-10"><Link href="/login">กรุณาเข้าสู่ระบบ</Link></div>;
 
   if (!storeInfo) {
