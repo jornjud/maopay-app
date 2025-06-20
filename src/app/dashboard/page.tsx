@@ -28,7 +28,7 @@ export default function DashboardRedirectPage() {
         const docSnap = await getDoc(userDocRef);
 
         if (docSnap.exists()) {
-          const userProfile = doc.snap.data() as UserProfile;
+          const userProfile = doc.data() as UserProfile;
           setStatus(`คุณคือ ${userProfile.role}, กำลังพาไป...`);
 
           // --- นี่คือหัวใจหลัก! สับรางตาม Role ---
