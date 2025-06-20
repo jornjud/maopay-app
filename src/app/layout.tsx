@@ -3,7 +3,8 @@ import { Kanit } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { AuthProvider } from "@/components/auth/AuthProvider"; // << Import เข้ามา
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { FirebaseMessagingProvider } from "@/components/auth/FirebaseMessagingProvider"; // 1. Import เข้ามา
 
 const kanit = Kanit({
   subsets: ["latin", "thai"],
@@ -23,13 +24,15 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className={kanit.className}>
-        {/* เอา AuthProvider มาครอบทุกอย่างไว้! */}
         <AuthProvider>
-          <Navbar />
-          <main className="min-h-screen bg-slate-50">
-            {children}
-          </main>
-          <Footer />
+          {/* 2. เอามาครอบแอปของเราไว้ตรงนี้! */}
+          <FirebaseMessagingProvider>
+            <Navbar />
+            <main className="min-h-screen bg-slate-50">
+              {children}
+            </main>
+            <Footer />
+          </FirebaseMessagingProvider>
         </AuthProvider>
       </body>
     </html>

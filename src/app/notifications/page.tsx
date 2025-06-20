@@ -2,15 +2,13 @@
 "use client";
 
 import React, { useState } from 'react';
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { getMessaging, getToken } from "firebase/messaging";
 import { app } from '@/lib/firebase';
-import { useNotificationStore } from '@/store/notificationStore';
-import { Button } from '@/components/ui/button'; // <-- เพิ่มบรรทัดนี้เข้ามา
+import { Button } from '@/components/ui/button';
 
 export default function App() {
   const [notificationToken, setNotificationToken] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
-  const { addNotification } = useNotificationStore();
 
   const requestPermissionAndGetToken = async () => {
     setMessage({ type: 'info', text: 'กำลังขออนุญาต...' });
@@ -20,7 +18,7 @@ export default function App() {
 
       if (permission === 'granted') {
         setMessage({ type: 'success', text: 'ได้รับอนุญาตแล้ว! กำลังดึง Token...' });
-        
+
         const currentToken = await getToken(messaging, {
           vapidKey: 'BKcjhwBLOSgnGyu8U1Ei0z3pQhmT7OkkU9ikKrlSHxQrA2sKLto8iaqK0Pa0LjjPSqxPUTbhiGXCOCVdxN1_w_U',
         });
@@ -29,17 +27,7 @@ export default function App() {
           setNotificationToken(currentToken);
           console.log('FCM Token:', currentToken);
           setMessage({ type: 'success', text: 'ลงทะเบียนรับแจ้งเตือนสำเร็จแล้ว! 🎉' });
-          
-          onMessage(messaging, (payload) => {
-            console.log('Message received. ', payload);
-            setMessage({ type: 'info', text: `มีแจ้งเตือนใหม่: ${payload.notification?.title}` });
-            
-            addNotification({
-              message: payload.notification?.body || 'ไม่มีเนื้อหา',
-              role: 'all'
-            });
-          });
-
+          // เราลบ onMessage ออกจากตรงนี้แล้ว เพราะย้ายไปอยู่ใน FirebaseMessagingProvider
         } else {
           setMessage({ type: 'error', text: 'ชิบหาย! ดึง Token ไม่ได้ว่ะเพื่อน ลองเช็คคอนโซลดู' });
         }
@@ -51,8 +39,6 @@ export default function App() {
         setMessage({ type: 'error', text: 'เกิดข้อผิดพลาดตอนขอ Token ว่ะเพื่อน' });
     }
   };
-  
-  // เราได้ลบฟังก์ชัน sendTestNotificationToServer ที่ไม่ได้ใช้ออกไปแล้ว
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 sm:p-6 lg:p-8">
