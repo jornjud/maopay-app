@@ -104,7 +104,7 @@ export default function OrderHistoryPage() {
                                   ยอดรวม: {order.total.toFixed(2)} THB
                                </p>
                                {order.status === 'waiting_for_payment' && (
-                                   <Link href={`/payment/${order.id}`} passHref>
+                                   <Link href={`/cart/payment/${order.id}`} passHref>
                                      <Button className="bg-green-500 hover:bg-green-600">จ่ายเงินเลย!</Button>
                                    </Link>
                                )}
