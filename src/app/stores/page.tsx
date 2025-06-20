@@ -6,7 +6,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, where, doc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
 
 // --- Import ของเรา ---
-import { auth, db } from '../../../lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
