@@ -1,387 +1,97 @@
 "use client";
-
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
-// --- Firebase Imports ---เหมา
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { 
-  collection, 
-  query, 
-  where, 
-  doc, 
-  updateDoc, 
-  addDoc, 
-  onSnapshot, 
-  Timestamp, 
-  serverTimestamp 
-} from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-
-// --- UI Component Imports ---
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent, 
-  CardFooter 
-} from '@/components/ui/card';
-
-// --- Type Definitions ---
 interface Store {
-  name: string;
-  description: string;
-  imageUrl: string;
-  ownerId: string;
-  telegramGroupId?: string;
-  paymentInfo?: {
-      accountName: string;
-      accountNumber: string;
-      bankName: string;
-  }
+    id: string;
+    name: string;
+    description: string;
+    imageUrl: string;
+    type: string;
 }
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-}
+export default function StoresPage() {
+    const [stores, setStores] = useState<Store[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedType, setSelectedType] = useState('all');
 
-interface Order {
-  id: string;
-  customerName?: string;
-  items: { name: string; quantity: number }[];
-  total: number;
-  status: 'waiting_for_confirmation' | 'waiting_for_payment' | 'paid' | 'cooking' | 'ready_for_pickup' | 'completed' | 'cancelled';
-  createdAt: Timestamp;
-}
-
-// --- Component ---
-export default function StoreDashboardPage() {
-  // --- State Management ---
-  const [user, setUser] = useState<User | null>(null);
-  const [storeInfo, setStoreInfo] = useState<Store | null>(null);
-  const [storeId, setStoreId] = useState<string | null>(null);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Edit Store State
-  const [isEditingStore, setIsEditingStore] = useState(false);
-  const [editedStoreName, setEditedStoreName] = useState('');
-  const [editedStoreDesc, setEditedStoreDesc] = useState('');
-  const [editedBankName, setEditedBankName] = useState('');
-  const [editedAccountName, setEditedAccountName] = useState('');
-  const [editedAccountNumber, setEditedAccountNumber] = useState('');
-
-  // Add Menu Item State
-  const [isAddingMenu, setIsAddingMenu] = useState(false);
-  const [newMenuName, setNewMenuName] = useState('');
-  const [newMenuDesc, setNewMenuDesc] = useState('');
-  const [newMenuPrice, setNewMenuPrice] = useState('');
-
-  // --- Effects ---
-
-  // Effect for handling user authentication and fetching store data
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        const storeQuery = query(collection(db, 'stores'), where('ownerId', '==', currentUser.uid));
+    useEffect(() => {
+        const storesQuery = query(collection(db, "stores"), where("status", "==", "approved"));
         
-        const unsubscribeStore = onSnapshot(storeQuery, 
-          (storeSnapshot) => {
-            if (!storeSnapshot.empty) {
-              const storeDoc = storeSnapshot.docs[0];
-              const storeData = storeDoc.data() as Store;
-              setStoreInfo(storeData);
-              setStoreId(storeDoc.id);
-              
-              // Pre-fill edit form
-              setEditedStoreName(storeData.name);
-              setEditedStoreDesc(storeData.description);
-              setEditedBankName(storeData.paymentInfo?.bankName || '');
-              setEditedAccountName(storeData.paymentInfo?.accountName || '');
-              setEditedAccountNumber(storeData.paymentInfo?.accountNumber || '');
-            } else {
-              setStoreInfo(null);
-              setStoreId(null);
-            }
+        const unsubscribe = onSnapshot(storesQuery, (snapshot) => {
+            const storesData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as Store));
+            setStores(storesData);
             setLoading(false);
-          }, 
-          (err) => {
-            console.error("Error fetching store data:", err);
-            setError("Failed to fetch store data.");
+        }, (error) => {
+            console.error("Error fetching stores: ", error);
             setLoading(false);
-          }
-        );
-        return () => unsubscribeStore(); // Cleanup listener
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const filteredStores = stores.filter(store => {
+        const matchesSearchTerm = store.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = selectedType === 'all' || store.type === selectedType;
+        return matchesSearchTerm && matchesType;
     });
 
-    return () => unsubscribeAuth(); // Cleanup listener
-  }, []);
-
-  // Effect for fetching menu items and orders when storeId is available
-  useEffect(() => {
-    if (!storeId) {
-      setMenuItems([]);
-      setOrders([]);
-      return;
+    if (loading) {
+        return <div className="text-center p-10">กำลังโหลดร้านค้า...</div>;
     }
 
-    // Listener for Menu Items
-    const menuQuery = query(collection(db, `stores/${storeId}/menuItems`));
-    const unsubscribeMenu = onSnapshot(menuQuery, (snap) => {
-      const menuList = snap.docs.map(d => ({ id: d.id, ...d.data() } as MenuItem));
-      setMenuItems(menuList);
-    });
+    return (
+        <div className="container mx-auto p-4">
+            <h1 className="text-3xl font-bold mb-6">ร้านค้าทั้งหมด</h1>
+            
+            <div className="flex flex-wrap gap-4 mb-6">
+                <input
+                    type="text"
+                    placeholder="ค้นหาชื่อร้าน..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="p-2 border rounded-md"
+                />
+                <select 
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                    className="p-2 border rounded-md"
+                >
+                    <option value="all">ทุกประเภท</option>
+                    <option value="restaurant">ร้านอาหาร</option>
+                    <option value="cafe">คาเฟ่</option>
+                    <option value="street_food">สตรีทฟู้ด</option>
+                </select>
+            </div>
 
-    // Listener for Orders
-    const orderQuery = query(collection(db, 'orders'), where('storeId', '==', storeId));
-    const unsubscribeOrders = onSnapshot(orderQuery, (snap) => {
-      const ordersList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-      // Sort orders by creation date, newest first
-      setOrders(ordersList.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()));
-    });
-
-    return () => {
-      unsubscribeMenu();
-      unsubscribeOrders();
-    };
-  }, [storeId]);
-
-  // --- Event Handlers ---
-
-  const handleUpdateStoreInfo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeId) return;
-
-    try {
-      const storeRef = doc(db, 'stores', storeId);
-      await updateDoc(storeRef, {
-        name: editedStoreName,
-        description: editedStoreDesc,
-        paymentInfo: {
-          bankName: editedBankName,
-          accountName: editedAccountName,
-          accountNumber: editedAccountNumber
-        }
-      });
-      setIsEditingStore(false);
-      alert('อัปเดตข้อมูลร้านค้าเรียบร้อย! 🎉');
-    } catch (err) {
-      console.error("Failed to update store info:", err);
-      alert('อัปเดตข้อมูลร้านค้าล้มเหลว 😭');
-    }
-  };
-
-  const handleAddMenuItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeId || !newMenuName || !newMenuPrice) return;
-
-    try {
-      await addDoc(collection(db, `stores/${storeId}/menuItems`), {
-        name: newMenuName,
-        description: newMenuDesc,
-        price: parseFloat(newMenuPrice),
-        imageUrl: `https://placehold.co/400x300/E2E8F0/4A5568?text=${encodeURIComponent(newMenuName)}`,
-      });
-      // Reset form
-      setNewMenuName('');
-      setNewMenuDesc('');
-      setNewMenuPrice('');
-      setIsAddingMenu(false);
-      alert("เพิ่มเมนูเรียบร้อย! 🍽️");
-    } catch (err) {
-      console.error("Failed to add menu item:", err);
-      alert("เพิ่มเมนูล้มเหลว 👎");
-    }
-  };
-  
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
-    try {
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, { status: newStatus, updatedAt: serverTimestamp() });
-      alert(`อัปเดตสถานะออเดอร์เป็น ${newStatus}`);
-    } catch (err) {
-      console.error("Failed to update order status:", err);
-      alert("อัปเดตสถานะล้มเหลว");
-    }
-  };
-
-  const handleNotifyRiders = async (orderId: string) => {
-    if (!storeId) {
-      alert("ไม่เจอ ID ร้านค้า!");
-      return;
-    }
-    try {
-      await fetch('/api/orders/notify-riders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, storeId }),
-      });
-      alert('แจ้งเตือนไรเดอร์แล้ว! 🛵💨');
-    } catch (err) {
-      console.error("Failed to notify riders:", err);
-      alert("ส่งแจ้งเตือนล้มเหลว");
-    }
-  };
-
-  // --- Render Logic ---
-
-  if (loading) return <div className="flex justify-center items-center h-screen">กำลังโหลดข้อมูลร้าน...</div>;
-  
-  if (error) return (
-    <div className="container mx-auto p-8 text-center text-red-500 bg-red-100 rounded-lg">
-      <h2 className="text-xl font-bold">เกิดข้อผิดพลาด:</h2>
-      <p>{error}</p>
-    </div>
-  );
-
-  if (!user) return (
-    <div className="flex justify-center items-center h-screen">
-      <Button asChild>
-        <Link href="/login">กรุณาเข้าสู่ระบบก่อนนะเพื่อน</Link>
-      </Button>
-    </div>
-  );
-
-  if (!storeInfo) return (
-    <div className="container mx-auto p-8 text-center">
-      <h2 className="text-2xl font-bold mb-4">ยังไม่มีร้านค้าจ้า</h2>
-      <p className="mb-6">ดูเหมือนว่ายังไม่ได้ลงทะเบียนร้านค้าเลยนะ มาสมัครกัน!</p>
-      <Button asChild><Link href="/stores/register">สมัครร้านค้าเลย!</Link></Button>
-    </div>
-  );
-
-  // Helper function to render action buttons based on order status
-  const renderOrderCardActions = (order: Order) => {
-    switch(order.status) {
-      case 'waiting_for_confirmation':
-        return (
-          <div className="flex gap-2">
-            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateOrderStatus(order.id, 'waiting_for_payment')}>✅ ยืนยันออเดอร์</Button>
-            <Button size="sm" variant="destructive" onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}>❌ ยกเลิก</Button>
-          </div>
-        );
-      case 'paid':
-        return <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleUpdateOrderStatus(order.id, 'cooking')}>🍳 เริ่มทำอาหาร</Button>;
-      case 'ready_for_pickup':
-        return <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => handleNotifyRiders(order.id)}>🛵 เรียกไรเดอร์</Button>;
-      default:
-        return <p className="text-sm text-gray-500">ไม่มี Action สำหรับสถานะนี้...</p>;
-    }
-  };
-
-  return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      {/* --- Page Header --- */}
-      <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">{storeInfo.name}</h1>
-          <p className="text-gray-500 mt-1">{storeInfo.description}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredStores.length > 0 ? filteredStores.map(store => (
+                    <Link href={`/stores/${store.id}`} key={store.id} className="block bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+                        <div className="relative h-48 w-full">
+                           <Image 
+                                src={store.imageUrl} 
+                                alt={store.name} 
+                                fill={true}
+                                style={{objectFit: 'cover'}}
+                            />
+                        </div>
+                        <div className="p-4">
+                            <h2 className="text-xl font-bold">{store.name}</h2>
+                            <p className="text-gray-600 mt-2 truncate">{store.description}</p>
+                            <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold mt-2 px-2.5 py-0.5 rounded-full">{store.type}</span>
+                        </div>
+                    </Link>
+                )) : (
+                     <p className="col-span-full text-center text-gray-500">ไม่พบร้านค้าที่ตรงกับเงื่อนไข</p>
+                )}
+            </div>
         </div>
-        <Dialog open={isEditingStore} onOpenChange={setIsEditingStore}>
-          <DialogTrigger asChild><Button variant="outline">แก้ไขข้อมูลร้าน</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>แก้ไขข้อมูลร้านค้าและบัญชีรับเงิน</DialogTitle></DialogHeader>
-            <form onSubmit={handleUpdateStoreInfo} className="space-y-4 py-4">
-              <div><Label htmlFor="s-name">ชื่อร้าน</Label><Input id="s-name" value={editedStoreName} onChange={e => setEditedStoreName(e.target.value)} /></div>
-              <div><Label htmlFor="s-desc">คำอธิบาย</Label><Textarea id="s-desc" value={editedStoreDesc} onChange={e => setEditedStoreDesc(e.target.value)} /></div>
-              <hr/>
-              <h3 className="font-semibold">ข้อมูลบัญชีสำหรับรับเงิน</h3>
-              <div><Label htmlFor="s-bank">ชื่อธนาคาร</Label><Input id="s-bank" value={editedBankName} onChange={e => setEditedBankName(e.target.value)} placeholder="เช่น กสิกรไทย" /></div>
-              <div><Label htmlFor="s-acc-name">ชื่อบัญชี</Label><Input id="s-acc-name" value={editedAccountName} onChange={e => setEditedAccountName(e.target.value)} placeholder="นายเหมา เปย์หนัก" /></div>
-              <div><Label htmlFor="s-acc-num">เลขบัญชี</Label><Input id="s-acc-num" value={editedAccountNumber} onChange={e => setEditedAccountNumber(e.target.value)} placeholder="123-4-56789-0"/></div>
-              <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="ghost">ยกเลิก</Button></DialogClose>
-                <Button type="submit">บันทึกข้อมูล</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </header>
-      
-      {/* --- Main Content Grid --- */}
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* --- Orders Section --- */}
-        <section className="lg:col-span-2 space-y-6">
-            <h2 className="text-2xl font-semibold">รายการออเดอร์ ({orders.length})</h2>
-            {orders.length > 0 ? (
-                orders.map(order => (
-                    <Card key={order.id}>
-                        <CardHeader>
-                            <CardTitle>Order #{order.id.substring(0, 6)}</CardTitle>
-                            <CardDescription>
-                                วันที่: {order.createdAt.toDate().toLocaleString('th-TH')}
-                            </CardDescription>
-                        </CardHeader>
-                         <CardContent>
-                            <ul className="list-disc pl-5 my-2">
-                                {order.items.map((item, index) => <li key={index}>{item.name} x {item.quantity}</li>)}
-                            </ul>
-                            <p><strong>ยอดรวม:</strong> {order.total.toFixed(2)} บาท</p>
-                            <p><strong>สถานะ:</strong> <span className="font-semibold uppercase">{order.status.replace(/_/g, ' ')}</span></p>
-                         </CardContent>
-                         <CardFooter>
-                            {renderOrderCardActions(order)}
-                         </CardFooter>
-                    </Card>
-                ))
-            ) : <p>ยังไม่มีออเดอร์เข้ามาเลยจ้า... 😴</p>}
-        </section>
-
-        {/* --- Menu Management Section --- */}
-        <aside className="space-y-6">
-           <h2 className="text-2xl font-semibold">จัดการเมนู ({menuItems.length})</h2>
-           <Dialog open={isAddingMenu} onOpenChange={setIsAddingMenu}>
-             <DialogTrigger asChild><Button className="w-full">เพิ่มเมนูใหม่</Button></DialogTrigger>
-             <DialogContent>
-               <DialogHeader><DialogTitle>เพิ่มเมนูใหม่</DialogTitle></DialogHeader>
-               <form onSubmit={handleAddMenuItem} className="space-y-4 py-4">
-                 <div><Label htmlFor="p-name">ชื่อเมนู</Label><Input id="p-name" value={newMenuName} onChange={e => setNewMenuName(e.target.value)} required /></div>
-                 <div><Label htmlFor="p-desc">คำอธิบาย (ถ้ามี)</Label><Input id="p-desc" value={newMenuDesc} onChange={e => setNewMenuDesc(e.target.value)} /></div>
-                 <div><Label htmlFor="p-price">ราคา</Label><Input id="p-price" type="number" value={newMenuPrice} onChange={e => setNewMenuPrice(e.target.value)} required /></div>
-                 <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="ghost">ยกเลิก</Button></DialogClose>
-                    <Button type="submit">บันทึกเมนู</Button>
-                 </DialogFooter>
-               </form>
-             </DialogContent>
-           </Dialog>
-           <div className="space-y-2">
-             {menuItems.length > 0 ? menuItems.map(item => (
-               <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-                 <p className="flex-grow">{item.name}</p>
-                 <p className="font-semibold">{item.price} บาท</p>
-                 {/* TODO: Add Edit/Delete buttons here later */}
-               </div>
-             )) : <p>ยังไม่มีเมนูในร้านค้า</p>}
-           </div>
-        </aside>
-      </main>
-    </div>
-  );
+    );
 }

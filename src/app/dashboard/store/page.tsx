@@ -1,9 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../../../lib/firebase';
+import Link from 'next/link';
+
+// --- Firebase Imports (จัดระเบียบใหม่) ---
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, where, doc, getDoc, updateDoc, addDoc, onSnapshot, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  where, 
+  doc, 
+  updateDoc, 
+  addDoc, 
+  onSnapshot, 
+  Timestamp, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+
+// --- UI Component Imports (จัดระเบียบใหม่) ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,10 +31,15 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-  DialogDescription
 } from '@/components/ui/dialog';
-import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { 
+  Card, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription, 
+  CardContent, 
+  CardFooter 
+} from '@/components/ui/card';
 
 // --- Interfaces ---
 interface Store {
@@ -45,7 +65,7 @@ interface MenuItem {
 
 interface Order {
   id: string;
-  customerName?: string; // May not always have this
+  customerName?: string;
   items: { name: string; quantity: number }[];
   total: number;
   status: 'waiting_for_confirmation' | 'waiting_for_payment' | 'paid' | 'cooking' | 'ready_for_pickup' | 'completed' | 'cancelled';
@@ -93,7 +113,6 @@ export default function StoreDashboardPage() {
           
           setStoreInfo(storeData);
           setStoreId(storeDocId);
-          // Initialize edit form states
           setEditedStoreName(storeData.name);
           setEditedStoreDesc(storeData.description);
           setEditedBankName(storeData.paymentInfo?.bankName || '');
@@ -215,7 +234,9 @@ export default function StoreDashboardPage() {
   };
 
   if (loading) return <div className="text-center p-10">กำลังโหลด...</div>;
+  if (error) return <div className="container mx-auto p-8 text-center text-red-500 bg-red-100 rounded-lg"><h2>เกิดข้อผิดพลาด:</h2><p>{error}</p></div>;
   if (!user) return <div className="text-center p-10"><Link href="/login">กรุณาเข้าสู่ระบบ</Link></div>;
+
   if (!storeInfo) {
     return (
       <div className="container mx-auto p-8 text-center">
@@ -226,7 +247,6 @@ export default function StoreDashboardPage() {
     );
   }
 
-  // --- Render Functions for Order Cards ---
   const renderOrderCardActions = (order: Order) => {
       switch(order.status) {
           case 'waiting_for_confirmation':
@@ -275,7 +295,6 @@ export default function StoreDashboardPage() {
       </header>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Orders Section */}
         <div className="lg:col-span-2 space-y-6">
             <h2 className="text-2xl font-semibold">รายการออเดอร์ ({orders.length})</h2>
             {orders.length > 0 ? (
@@ -292,7 +311,7 @@ export default function StoreDashboardPage() {
                                 {order.items.map((item, index) => <li key={index}>{item.name} x {item.quantity}</li>)}
                             </ul>
                             <p><strong>ยอดรวม:</strong> {order.total.toFixed(2)} บาท</p>
-                            <p><strong>สถานะ:</strong> <span className="font-semibold uppercase">{order.status.replace('_', ' ')}</span></p>
+                            <p><strong>สถานะ:</strong> <span className="font-semibold uppercase">{order.status.replace(/_/g, ' ')}</span></p>
                          </CardContent>
                          <CardFooter>
                             {renderOrderCardActions(order)}
@@ -302,7 +321,6 @@ export default function StoreDashboardPage() {
             ) : <p>ยังไม่มีออเดอร์เข้ามา</p>}
         </div>
 
-        {/* Menu Section */}
         <div className="space-y-6">
            <h2 className="text-2xl font-semibold">จัดการเมนู ({menuItems.length})</h2>
            <Dialog open={isAddingMenu} onOpenChange={setIsAddingMenu}>
@@ -324,7 +342,6 @@ export default function StoreDashboardPage() {
              {menuItems.map(item => (
                <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
                  <p>{item.name} - {item.price} THB</p>
-                 {/* TODO: Add edit/delete functionality */}
                </div>
              ))}
            </div>
