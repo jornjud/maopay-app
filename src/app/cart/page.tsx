@@ -1,6 +1,6 @@
 "use client";
 
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useState } from 'react';
 import { useCartStore } from '@/store/cartStore'; 
@@ -13,35 +13,34 @@ import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-
 const CartPage = () => {
-  const { items, removeItem, increaseQuantity, decreaseQuantity, clearCart } = useCartStore();
+  const { items, storeId, removeItem, increaseQuantity, decreaseQuantity, clearCart } = useCartStore();
   const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
 
-  const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  
+  // --- คำนวณค่าบริการตาม Flow ใหม่ ---
+  const deliveryFee = Math.ceil(items.reduce((acc, item) => acc + item.quantity, 0) / 5) * 10;
+  const appFee = 1; // ค่าบริการแอป 1 บาท
+  const total = subtotal + deliveryFee + appFee;
 
   const handleCheckout = async () => {
     if (!user) {
         router.push('/login?redirect=/cart');
         return;
     }
-
     if (items.length === 0) {
         setError("ตะกร้าของมึงว่างเปล่าเว้ยเพื่อน!");
         return;
     }
-
 	if (!deliveryAddress.trim()) {
         setError("เฮ้ยเพื่อน! ลืมใส่ที่อยู่จัดส่งรึเปล่า?");
         return;
     }
-
-    const storeId = useCartStore.getState().storeId;
-
     if (!storeId) {
         setError("ชิบหายละ! ไม่เจอ ID ร้านค้าในตะกร้า, ทำต่อไม่ได้ว่ะ");
         return;
@@ -51,33 +50,49 @@ const CartPage = () => {
     setError(null);
 
     try {
-        // --- สร้างข้อมูลออเดอร์ ---
+        const storeDocRef = doc(db, 'stores', storeId);
+        const storeSnap = await getDoc(storeDocRef);
+        if(!storeSnap.exists()){
+            throw new Error("ไม่พบข้อมูลร้านค้า!");
+        }
+        const storeData = storeSnap.data();
+
+        // --- สร้างข้อมูลออเดอร์ตาม Flow V2.0 ---
         const orderData = {
-            userId: user.uid, // ID ของลูกค้า
-            storeId: storeId, // ID ของร้านค้า
-            items: items.map(item => ({ // เอาเฉพาะข้อมูลที่จำเป็น
+            userId: user.uid,
+            customerName: user.displayName || user.email,
+            storeId: storeId,
+            storeName: storeData.name,
+            items: items.map(item => ({
                 id: item.id,
                 name: item.name,
                 price: item.price,
                 quantity: item.quantity,
                 image: item.image || ''
             })),
+            fees: {
+                subtotal: subtotal,
+                deliveryFee: deliveryFee,
+                appFee: appFee,
+            },
             total: total,
-            status: 'pending', // สถานะเริ่มต้น
+            status: 'waiting_for_confirmation', // <-- สถานะเริ่มต้นใหม่!
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             deliveryAddress: {
                 address: deliveryAddress
-            } 
+            },
+            payment: {
+                qrImage: `https://promptpay.io/0812345678/${total.toFixed(2)}.png`, // <-- QR Code ของแอปเรา
+                paidAt: null,
+            }
         };
 
-        // --- ยิงตรงไป Firestore เลยเพื่อน! ---
         const orderRef = await addDoc(collection(db, 'orders'), orderData);
         console.log("สร้างออเดอร์สำเร็จ! ID:", orderRef.id);
 
-        // เคลียร์ตะกร้า แล้วพาไปหน้าประวัติการสั่งซื้อ
         clearCart();
-        alert("สั่งซื้อสำเร็จแล้วเพื่อน! ขอบคุณที่ใช้บริการ!");
+        alert("ส่งคำสั่งซื้อไปให้ร้านค้าแล้ว! รอร้านยืนยันแป๊ปนะเพื่อน!");
         router.push(`/history`); 
 
     } catch (error: unknown) {
@@ -97,7 +112,7 @@ const CartPage = () => {
         </CardHeader>
         <CardContent>
           {items.length === 0 ? (
-            <p>ยังไม่มีสินค้าในตะกร้า</p>
+            <p className="text-center text-gray-500 py-8">ยังไม่มีสินค้าในตะกร้า</p>
           ) : (
             <div className="space-y-4">
               {items.map((item) => (
@@ -120,7 +135,7 @@ const CartPage = () => {
                       <Button variant="ghost" size="icon" onClick={() => decreaseQuantity(item.id)}>
                         <MinusCircle className="h-5 w-5" />
                       </Button>
-                      <span>{item.quantity}</span>
+                      <span className='font-bold text-lg w-8 text-center'>{item.quantity}</span>
                       <Button variant="ghost" size="icon" onClick={() => increaseQuantity(item.id)}>
                         <PlusCircle className="h-5 w-5" />
                       </Button>
@@ -136,22 +151,25 @@ const CartPage = () => {
         </CardContent>
         {items.length > 0 && (
           <CardFooter className="flex flex-col items-stretch gap-4 mt-4">
-            {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-md">{error}</p>}
-			<div className="grid w-full gap-1.5">
-        <Label htmlFor="address">ที่อยู่สำหรับจัดส่ง</Label>
-        <Textarea 
-            placeholder="บอกที่อยู่มาให้ละเอียดเลยเพื่อน..." 
-            id="address"
-            value={deliveryAddress}
-            onChange={(e) => setDeliveryAddress(e.target.value)}
-        />
+            <div className="grid w-full gap-1.5">
+                <Label htmlFor="address">ที่อยู่สำหรับจัดส่ง</Label>
+                <Textarea 
+                    placeholder="บอกที่อยู่มาให้ละเอียดเลยเพื่อน... เช่น บ้านเลขที่, ซอย, ถนน, ตำบล/แขวง, อำเภอ/เขต, จังหวัด, รหัสไปรษณีย์" 
+                    id="address"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    rows={3}
+                />
 			</div>
-            <div className="flex justify-between text-xl font-bold">
-              <span>ยอดสุทธิ:</span>
-              <span>{total.toFixed(2)} บาท</span>
+            <div className="space-y-2 border-t pt-4">
+                <div className="flex justify-between"><span>ราคาสินค้า</span><span>{subtotal.toFixed(2)} บาท</span></div>
+                <div className="flex justify-between"><span>ค่าจัดส่ง</span><span>{deliveryFee.toFixed(2)} บาท</span></div>
+                <div className="flex justify-between text-sm text-gray-500"><span>ค่าบริการ</span><span>{appFee.toFixed(2)} บาท</span></div>
+                <div className="flex justify-between text-xl font-bold"><span>ยอดสุทธิ</span><span>{total.toFixed(2)} บาท</span></div>
             </div>
+            {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-md">{error}</p>}
             <Button onClick={handleCheckout} disabled={isLoading} size="lg">
-              {isLoading ? 'กำลังดำเนินการ...' : 'ดำเนินการต่อ'}
+              {isLoading ? 'กำลังส่งคำสั่งซื้อ...' : 'ยืนยันและส่งให้ร้านค้าตรวจสอบ'}
             </Button>
           </CardFooter>
         )}
