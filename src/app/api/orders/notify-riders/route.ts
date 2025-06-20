@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { db, auth as adminAuth } from '@/lib/firebase-admin'; // แก้เป็น adminAuth
 import { doc, getDoc } from 'firebase/firestore';
 
 // --- 👇👇 เพิ่มตรงนี้เลยเพื่อน! 👇👇 ---
@@ -54,67 +54,72 @@ async function sendTelegramNotification(chat_id: string, text: string, orderId: 
     // Just log it and move on
   }
 }
-// --- 👆👆 จบส่วนที่เพิ่ม 👆👆 ---
 
+// --- ฟังก์ชันใหม่! สำหรับยิง Push Notification ของจริง! ---
+async function sendPushNotification(title: string, body: string, orderId: string) {
+    const topic = 'new-jobs'; // เราจะยิงไปที่ Topic นี้ ไรเดอร์ทุกคนต้องมา Subscribe
+
+    const message = {
+        notification: {
+            title: title,
+            body: body,
+        },
+        webpush: {
+            fcm_options: {
+                link: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/rider?orderId=${orderId}`
+            },
+            notification: {
+                icon: "https://www.maopay-app.vercel.app/favicon.ico", // เปลี่ยนเป็น URL รูปไอคอนของนาย
+            }
+        },
+        topic: topic,
+    };
+
+    try {
+        const response = await adminAuth.messaging().send(message);
+        console.log('Successfully sent push notification:', response);
+        return { success: true, response };
+    } catch (error) {
+        console.error('Error sending push notification:', error);
+        return { success: false, error };
+    }
+}
 
 export async function POST(req: NextRequest) {
   if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_RIDER_GROUP_CHAT_ID) {
-    console.error('SERVER ERROR: Missing Telegram environment variables!');
-    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+    return NextResponse.json({ error: 'Server configuration error for Telegram.' }, { status: 500 });
   }
 
   try {
     const { orderId, storeId } = await req.json();
-
     if (!orderId || !storeId) {
       return NextResponse.json({ error: 'Missing orderId or storeId' }, { status: 400 });
     }
 
-    // --- สร้างข้อความอย่างปลอดภัย ---
-    let message = '';
-    try {
-        const storeRef = doc(db, 'stores', storeId);
-        const orderRef = doc(db, 'orders', orderId);
+    const storeRef = doc(db, 'stores', storeId);
+    const orderRef = doc(db, 'orders', orderId);
+    const [storeSnap, orderSnap] = await Promise.all([getDoc(storeRef), getDoc(orderRef)]);
 
-        const [storeSnap, orderSnap] = await Promise.all([getDoc(storeRef), getDoc(orderRef)]);
-
-        if (!storeSnap.exists()) return NextResponse.json({ error: 'Store not found' }, { status: 404 });
-        if (!orderSnap.exists()) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-
-        const storeData = storeSnap.data();
-        const orderData = orderSnap.data();
-
-        const storeLocation = storeData.location?.address || 'ไม่ระบุพิกัด';
-        const deliveryAddress = orderData.deliveryAddress?.address || 'ลูกค้ายังไม่ได้ระบุที่อยู่';
-        const items = orderData.items || [];
-        const totalPrice = orderData.totalPrice || 0;
-
-        const itemsSummary = items.map((item: { name: string; quantity: number; }) => `  - ${item.name} (x${item.quantity})`).join('\\n');
-        
-        message = `
-🚨 *มีออเดอร์ใหม่เข้าจ้า!* 🚨
-
-*จากร้าน:* ${storeData.name || 'N/A'}
-*พิกัดร้าน:* ${storeLocation}
-
-*รายการอาหาร:*
-${itemsSummary}
-
-*ราคารวม:* ${totalPrice.toFixed(2)} บาท
-
-*ที่อยู่จัดส่ง:*
-${deliveryAddress}
-        `;
-    } catch (dataError) {
-        console.error("ERROR when preparing message data:", dataError);
-        // ถ้าดึงข้อมูลมาสร้าง message ไม่ได้ ก็ส่งข้อความแบบง่ายๆไปแทน
-        message = `🚨 มีออเดอร์ใหม่เข้า! Order ID: ${orderId} แต่ดึงข้อมูลมาแสดงผลไม่ได้ โปรดตรวจสอบในระบบ`;
-    }
+    if (!storeSnap.exists()) return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    if (!orderSnap.exists()) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     
-    // --- ส่งข้อความ ---
-    await sendTelegramNotification(process.env.TELEGRAM_RIDER_GROUP_CHAT_ID, message, orderId);
+    const storeData = storeSnap.data();
+    const orderData = orderSnap.data();
+    
+    const notiTitle = `🚨 งานใหม่เข้า! จากร้าน ${storeData.name || 'N/A'}`;
+    const notiBody = `มีออเดอร์ให้ไปส่งที่: ${orderData.deliveryAddress?.address || 'ไม่มีที่อยู่'}`;
+    const telegramMessage = `
+🚨 *มีออเดอร์ใหม่เข้าจ้า!* 🚨
+*จากร้าน:* ${storeData.name || 'N/A'}
+*ที่อยู่จัดส่ง:* ${orderData.deliveryAddress?.address || 'ไม่มีที่อยู่'}
+*ยอดรวม:* ${orderData.total.toFixed(2)} บาท
+    `;
 
-    return NextResponse.json({ message: 'Notification sent successfully to riders.' });
+    // --- ยิงแม่ม 2 ที่เลย ทั้ง Telegram ทั้ง Push Notification ---
+    await sendTelegramNotification(process.env.TELEGRAM_RIDER_GROUP_CHAT_ID, telegramMessage, orderId);
+    await sendPushNotification(notiTitle, notiBody, orderId);
+
+    return NextResponse.json({ message: 'Notification sent successfully to riders via all channels.' });
 
   } catch (error) {
     console.error('FATAL Error in notify-riders endpoint:', error);

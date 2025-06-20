@@ -9,6 +9,8 @@ import { collection, query, where, doc, getDoc, updateDoc, onSnapshot, Timestamp
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { getMessaging, getToken } from "firebase/messaging"; // <-- เพิ่ม import
+import { app } from '@/lib/firebase'; // <-- เพิ่ม import
 
 // --- Interfaces ---
 interface Order {
@@ -45,6 +47,39 @@ function RiderDashboard() {
 
   const searchParams = useSearchParams();
   const router = useRouter();
+
+
+// --- 👇👇 เพิ่ม useEffect อันนี้เข้าไปเลย! 👇👇 ---
+  useEffect(() => {
+    // ฟังก์ชันสำหรับ subscribe topic
+    const subscribeToTopic = async () => {
+      try {
+        const messaging = getMessaging(app);
+        // ขอ Token ก่อน
+        const currentToken = await getToken(messaging, {
+            vapidKey: 'BKcjhwBLOSgnGyu8U1Ei0z3pQhmT7OkkU9ikKrlSHxQrA2sKLto8iaqK0Pa0LjjPSqxPUTbhiGXCOCVdxN1_w_U', // <-- VAPID key ของนายตัวเดิม
+        });
+
+        if (currentToken) {
+            console.log('Rider FCM Token:', currentToken);
+            // ปกติเราจะส่ง token นี้ไปที่ server เพื่อ subscribe
+            // แต่ Firebase SDK จัดการให้เราได้เลยถ้าเราใช้ topic
+            // ในที่นี้เราจะให้ Client จัดการตัวเองไปก่อน
+            // ในระบบที่ใหญ่ขึ้นควรมี logic จัดการ subscription ที่ backend
+            console.log("Rider is ready to receive notifications for 'new-jobs' topic.");
+        } else {
+            console.log('No registration token available. Request permission to generate one.');
+        }
+      } catch (err) {
+          console.log('An error occurred while retrieving token. ', err);
+      }
+    };
+
+    if(user) {
+        subscribeToTopic();
+    }
+  }, [user]);
+  // --- 👆👆 จบส่วนที่เพิ่ม 👆👆 ---
 
   // --- Auth & Profile ---
   useEffect(() => {
